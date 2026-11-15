@@ -153,6 +153,7 @@ details[open]>summary{border-bottom:1px solid var(--line);margin-bottom:8px}
   <div class="card"><h3>Catches drift</h3><p>Intent says protected, code shows no authentication check, or a pull request removed the one that was there.</p></div>
   <div class="card"><h3>Catches downgrades</h3><p>Flags a pull request that lowers exposure, or removes a gate, rate limit or network restriction from a sidecar.</p></div>
   <div class="card"><h3>Verifies the running app</h3><p>Sends credential-free requests to a local or staging app. A protected route that answers 200 is reported as a gap. Safe methods only by default.</p></div>
+  <div class="card"><h3>Records who reviewed</h3><p>A sidecar can note who confirmed a route and when. If the route code changes after that date, the check flags the review as stale.</p></div>
   <div class="card"><h3>Guards admin pages</h3><p>An extra gate (SSO, MFA or a passphrase of 8+ characters), a network restriction, and no links or sitemap entries unless you approve.</p></div>
 </div>
 
@@ -223,7 +224,8 @@ ROUTE              METHOD  EXPOSURE       GATE  VIA  DECIDED BY  AUTH CHECK  GAP
   <li>Enforcement output supports Nginx, Next.js and Cloudflare. Next.js is the only framework tested end to end. Routes are also read for JS/TS, Python, Go, Java/Kotlin, C#, Ruby, PHP, Rust, Elixir, Swift and Dart, but those patterns were checked on small snippets, not real projects, and router mount prefixes are not resolved.</li>
   <li><code>route-protection-intent spec openapi.json</code> compares an OpenAPI (JSON) document with the recorded protection and lists disagreements.</li>
   <li>Authentication detection and the link scan are text matching, so expect misses and some false positives. If a check lives in middleware or a gateway, record it in <code>enforcement.via</code>.</li>
-  <li><code>reason.source: user</code> is a convention an agent could forge, so review sidecar changes in pull requests.</li>
+  <li><code>reason.source: user</code> and the review fields (<code>reviewedBy</code>, <code>reviewedAt</code>) are text in a file that an agent could forge, so review sidecar changes in pull requests, for example with CODEOWNERS. A review is checked by day and only against the route file's own git history.</li>
+  <li>Defaults differ on purpose: the plugin and CLI only warn, while the GitHub Action (<em>Route Protection Check</em>) fails the job unless you set <code>strict: false</code>. It outputs <code>findings</code>, <code>errors</code>, <code>warnings</code> and <code>routes</code> for later steps.</li>
   <li>This is one layer, not a security architecture. See the <a href="https://github.com/zafrem/route-protection-intent/blob/main/docs/SECURITY-ARCHITECTURE.md">architecture guide</a> for what has to exist underneath: central authentication, per-record authorization, a separate admin plane and a test that fails when protection is removed.</li>
   <li>For secure-coding rules and linting, rely on <code>/security-review</code> and tools like Semgrep or ESLint security rules.</li>
 </ul>

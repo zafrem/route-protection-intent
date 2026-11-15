@@ -32,6 +32,7 @@ Practical steps for using route-protection-intent. For how it works inside see [
 1. You or the agent add or edit a route.
 2. The plugin classifies it. **Clear cases are saved silently.** Unclear ones ask you to choose secured, public, or leave unclassified.
 3. Review the new `.route.json` in the diff like any other file.
+   When a person has confirmed a route, record it: `"reason": { "source": "user", "reviewedBy": "Dana", "reviewedAt": "2026-11-15" }` (both fields, YYYY-MM-DD). Tell Claude who reviewed and when; it never makes these up. See section 4a.
 4. Run `/route-protection-intent:check` before you merge.
 
 ## 3. Scenarios
@@ -81,7 +82,7 @@ Practical steps for using route-protection-intent. For how it works inside see [
 3. Run `/route-protection-intent:compile <nginx|nextjs|cloudflare>`. Review the generated config (`route-protection-intent.nginx.conf`, `route-protection-intent.nextjs.js`, or `route-protection-intent._headers`) before use; where methods differ, the strictest applies to the path.
 4. Add `routes-manifest.json` and the generated config to `.gitignore` and to your deploy exclusions. The manifest lists admin paths.
 
-## 4a. Audit: the route inventory
+## 4a. Audit: the route inventory and reviews
 
 `/route-protection-intent:report` (or `route-protection-intent report .`) lists every route and method with its recorded protection:
 
@@ -94,7 +95,9 @@ ROUTE       METHOD  EXPOSURE       GATE  VIA  DECIDED BY  AUTH CHECK  GAPS
 
 - **Decided by:** `user` means a person confirmed it. `heuristic` or `agent` means it was only guessed, so review those first.
 - **Auth check:** whether the route code shows an authentication check (a text match for common patterns). It is not proof, and it is the same for every method of a route.
+- **Reviewed:** a REVIEWED column (reviewer and date) appears once any sidecar records a review, and the summary counts them. It is a record, not proof: the name is text in a file, so require pull-request review on `.route.json` (for example with CODEOWNERS).
 - **Gaps:** `no-sidecar`, `unclassified`, `orphan`, `schema`, `protected-no-auth-check` (recorded as protected, no check visible) and `public-with-auth-check` (recorded as public, but the code checks authentication: is it really public?).
+- **Stale reviews:** `check` reports `review-stale` when the route code was committed on a later day than `reviewedAt`. Re-check the intent, then update `reviewedAt` (and `reviewedBy`). It needs git history, works by day, and does not see changes to middleware or shared code. A new decision saved by a person replaces the old review.
 - **Audit trail:** commit the output (`route-protection-intent report . --format md > docs/route-inventory.md`). Rows are sorted and have no timestamps, so a pull request's diff shows exactly which route changed exposure.
 - **Formats:** `--format table|md|json|csv`. `--strict` exits 1 when any gap exists.
 - **Limit:** this is static. It does not contact the running app. To test that a protected route really refuses anonymous callers, use `verify` (next section).
@@ -131,7 +134,7 @@ Next.js, SvelteKit and Nuxt are found by file path. For Express, NestJS, Flask, 
 
 ## 4. Checking and CI
 
-Exit codes for `check`: **0** in annotate mode (warnings only), **1** with `--strict` or for violations in `enforce` sidecars.
+Defaults differ on purpose: the plugin and the CLI only warn (exit 0) unless you pass `--strict`, while the Action and the example workflow run strict, so a finding fails the job. Exit codes for `check`: **0** in annotate mode (warnings only), **1** with `--strict` or for violations in `enforce` sidecars.
 
 Local or CI (from a checkout; the CLI needs only Node 18+):
 ```bash
@@ -151,6 +154,8 @@ GitHub Actions on pull requests: copy `examples/github-action/route-protection-i
 node "$RUNNER_TEMP/route-protection-intent/bin/route-protection-intent.js" check . --base "origin/$BASE_BRANCH" --format github --strict
 ```
 so each finding shows as an annotation on the changed file (`auth-removed` and `policy-downgrade` as errors, the rest as warnings). Move the pin to a newer tag on purpose; a tag can in principle be moved, so use a full commit hash for the strictest setting. If the app is in a subfolder, replace `.` with that folder.
+
+Instead of copying the workflow you can use the Action, `zafrem/route-protection-intent@v0.1.4` (displayed as "Route Protection Check"). Inputs: `path`, `base`, `strict` (default `true`; `false` warns only). Outputs for later steps: `findings`, `errors` (`auth-removed`, `policy-downgrade`, `base-unresolved`), `warnings` and `routes`. Use `if: always()` on a step that reads them, because a strict failure ends the job. The CLI writes them with `check --github-output` when `$GITHUB_OUTPUT` is set.
 
 `--base` needs the base commit available locally. A shallow clone (`fetch-depth: 1`) or a mistyped ref cannot compare, so `check` reports `base-unresolved` and exits 1 instead of passing without a comparison. Keep `fetch-depth: 0`.
 
@@ -173,6 +178,7 @@ so each finding shows as an annotation on the changed file (`auth-removed` and `
 | `intent-code-mismatch` | Align the route's caching or `robots` metadata with the sidecar, or update the sidecar |
 | `linkable-not-approved` | Confirm with the owner, then re-save with `reason.source: user`, or remove `linkable` |
 | `intent-code-mismatch` | Remove `force-static` / `revalidate` on `no-store` routes, or align `robots` metadata with the sidecar's `indexing` |
+| `review-stale` | The route code changed after `reason.reviewedAt`. Re-check the intent, then update the review date |
 | `policy-downgrade` | Restore the previous exposure, `gate`, `rateLimit`, `mode` or network restriction, or get explicit review approval |
 
 `save` exits 2 on a schema error, a secret-like value, a sidecar name that is not allowed, or an unapproved `linkable`. Nothing is written in that case.

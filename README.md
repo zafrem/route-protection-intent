@@ -73,6 +73,8 @@ ROUTE       METHOD  EXPOSURE       GATE  VIA  DECIDED BY  AUTH CHECK  GAPS
 /reports    GET     (none)         -     -    -           n/a         no-sidecar
 ```
 
+Once any sidecar records a review (see [Recording that a person reviewed a route](#recording-that-a-person-reviewed-a-route)), a REVIEWED column shows who and when.
+
 The output is sorted and has no timestamps, so you can commit it (`--format md > docs/route-inventory.md`) and a pull request's diff shows exactly which route changed exposure. It is static: it does not contact a running app, so it cannot prove that a protected route really refuses anonymous callers.
 
 ## Sample report
