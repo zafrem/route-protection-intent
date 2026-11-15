@@ -10,6 +10,37 @@ This is not a collection of secure-coding rules or a linter. For those, use Clau
 
 > **Annotation is not protection.** By default (`mode: annotate`) this tool only records intent. It blocks nothing, and `check` only warns. A route with a sidecar is not thereby protected.
 
+## The idea
+
+1. **Record.** When a route is written, a sidecar next to it says what the route should be.
+2. **Compare.** `check` compares that intent with the route code.
+3. **Catch.** On a pull request it flags a removed authentication check or a weakened sidecar, even when nobody noticed.
+
+A sidecar is a small JSON file (`app/api/orders/.route.json`):
+
+```json
+{
+  "version": 1,
+  "mode": "annotate",
+  "route": "/api/orders",
+  "methods": {
+    "GET": {
+      "exposure": "authenticated",
+      "cache": {
+        "policy": "no-store"
+      },
+      "indexing": "noindex"
+    }
+  },
+  "reason": {
+    "source": "heuristic",
+    "rule": "path-api"
+  }
+}
+```
+
+More on the [showcase site](https://zafrem.github.io/security-sidecar/).
+
 ## What it catches
 
 `check` flags a route when its code and its recorded intent disagree:

@@ -28,6 +28,8 @@ table{width:100%;border-collapse:collapse;font-size:.92rem}
 th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
 th{color:var(--muted);font-weight:600}
 a{color:var(--accent)}
+ol.steps{padding-left:1.2rem}
+ol.steps li{margin:6px 0}
 .btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
 .btn{display:inline-block;padding:9px 16px;border-radius:8px;border:1px solid var(--accent);text-decoration:none;font-weight:600}
 .btn.primary{background:var(--accent);color:var(--bg)}
@@ -52,12 +54,20 @@ footer{margin-top:48px;color:var(--muted);font-size:.9rem}
 
 <p class="note"><strong>Advice, not a firewall.</strong> A sidecar records intent and blocks nothing in its default annotate mode. It is not a secure-coding rule set or a linter: use <code>/security-review</code> and your own scanners for that.</p>
 
-<h2>What it does</h2>
+<h2>The problem</h2>
+<p>An AI assistant writes a route and gets the protection right, or quietly gets it wrong. Weeks later another change, by the AI or a person, removes a check. Nothing records what the route was <em>supposed</em> to do, so nothing can say that something is missing.</p>
+
+<h2>How it works</h2>
+<ol class="steps">
+  <li><strong>Record.</strong> When a route is written, a small <code>.route.json</code> sidecar next to it says what it should be: public, login-only or internal. Clear cases are saved silently; unsure ones ask you and default to secured.</li>
+  <li><strong>Compare.</strong> <code>check</code> reads the sidecar and the route code and reports where they disagree.</li>
+  <li><strong>Catch.</strong> On a pull request, it flags an authentication check that was removed from a protected route, or a sidecar that was quietly weakened.</li>
+</ol>
+
 <div class="grid">
-  <div class="card"><h3>Records intent</h3><p>Each route gets a <code>.route.json</code> sidecar: public, login-only or internal. Clear cases are saved silently; unsure ones ask you and default to secured.</p></div>
-  <div class="card"><h3>Catches drift</h3><p>Compares the recorded intent with the code. An authentication check removed from a protected route is flagged on the pull request.</p></div>
+  <div class="card"><h3>Catches drift</h3><p>Intent says protected, code shows no authentication check, or a pull request removed the one that was there.</p></div>
   <div class="card"><h3>Catches downgrades</h3><p>Flags a pull request that lowers exposure, or removes a gate, rate limit or network restriction from a sidecar.</p></div>
-  <div class="card"><h3>Admin pages</h3><p>An extra gate (SSO, MFA or a passphrase of 8+ characters), a network restriction, and no links or sitemap entries unless you approve.</p></div>
+  <div class="card"><h3>Guards admin pages</h3><p>An extra gate (SSO, MFA or a passphrase of 8+ characters), a network restriction, and no links or sitemap entries unless you approve.</p></div>
 </div>
 
 <h2>Catching a removed check</h2>
@@ -68,15 +78,34 @@ says it must be protected. Restore it, or change the recorded intent</code></pre
 <p style="color:var(--muted);font-size:.9rem">The finding shows up as an annotation on the pull request and fails the job. Detection is text matching for common patterns, so expect misses.</p>
 
 <h2>A sidecar</h2>
-<pre><code>app/admin-k7Qx92mVbT4nLw/.route.json
+<pre><code>app/api/orders/.route.json
 {
-  "route": "/admin-k7Qx92mVbT4nLw",
+  "version": 1,
   "mode": "annotate",
-  "gate": { "type": "passphrase", "minLength": 16 },
-  "enforcement": { "via": ["ip-allowlist"] },
-  "reason": { "source": "user" }
+  "route": "/api/orders",
+  "methods": {
+    "GET": {
+      "exposure": "authenticated",
+      "cache": {
+        "policy": "no-store"
+      },
+      "indexing": "noindex"
+    }
+  },
+  "reason": {
+    "source": "heuristic",
+    "rule": "path-api"
+  }
 }</code></pre>
-<p style="color:var(--muted);font-size:.9rem">Abbreviated: the real file also holds per-method exposure, cache and indexing. Illustrative values.</p>
+<p style="color:var(--muted);font-size:.9rem">This is the file <code>save</code> writes for a typical API route. It is a small file, reviewed in the diff like any other.</p>
+
+<h2>What it is not</h2>
+<table>
+<tr><th></th><th>security-sidecar</th><th>Rule sets and linters</th></tr>
+<tr><td>Answers</td><td>Is the code doing what this route is meant to do?</td><td>Is this code written safely?</td></tr>
+<tr><td>Needs</td><td>A recorded intent per route</td><td>Rules or patterns</td></tr>
+<tr><td>Use for</td><td>Drift, removed checks, downgrades</td><td><code>/security-review</code>, Semgrep, ESLint security rules</td></tr>
+</table>
 
 <h2>Install</h2>
 <pre><code>/plugin marketplace add zafrem/security-sidecar
