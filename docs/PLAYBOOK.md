@@ -141,5 +141,6 @@ so each finding shows as an annotation on the changed file (`auth-removed` and `
 ```bash
 npm test           # unit, hook and bundle-freshness tests
 npm run bundle     # after changing src/ or schema/, copy into the plugin; commit the result
+claude plugin validate plugins/security-sidecar   # CI runs this and `claude plugin validate .` with a pinned Claude Code version
 claude plugin validate .
 ```

@@ -35,3 +35,16 @@ jobs:
       - run: npm run bundle
       - name: Fail if the bundled CLI differs from src/
         run: git diff --exit-code -- plugins/security-sidecar/cli
+
+  validate:
+    name: Claude Code plugin and marketplace validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      # Pinned so a new Claude Code release cannot break CI by itself. Bump it on purpose.
+      - run: npm install -g @anthropic-ai/claude-code@2.1.311
+      - run: claude plugin validate plugins/security-sidecar
+      - run: claude plugin validate .
