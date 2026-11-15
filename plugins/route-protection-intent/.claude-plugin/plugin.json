@@ -1,6 +1,6 @@
 {
   "name": "route-protection-intent",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Documents each web route's protection intent in a .route.json sidecar, so that even if the AI misses something, it can still be caught. Flags code that drifts from that intent, such as a removed authentication check. Annotate-only by default.",
   "author": {
     "name": "zafrem"

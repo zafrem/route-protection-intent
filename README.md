@@ -48,7 +48,7 @@ Install in Claude Code (needs Node 18+):
 /plugin install route-protection-intent --marketplace zafrem/route-protection-intent
 ```
 
-This plugin is installed straight from this GitHub repository (it is its own marketplace). It is not listed in Anthropic's official plugin directory, so Claude Code treats it like any third-party plugin: read the code before you install it. Current release: `v0.1.4`.
+This plugin is installed straight from this GitHub repository (it is its own marketplace). It is not listed in Anthropic's official plugin directory, so Claude Code treats it like any third-party plugin: read the code before you install it. Current release: `v0.1.5`.
 
 Then run `/route-protection-intent:check` in your project. Routes without a sidecar show up as `missing`; ask Claude to classify them. From then on, writing or editing a route file records its intent automatically: clear cases are saved silently, unclear ones ask you, and the default is the secured side.
 
@@ -149,14 +149,14 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
-      - uses: zafrem/route-protection-intent@v0.1.4
+      - uses: zafrem/route-protection-intent@v0.1.5
 ```
 
 **Defaults differ on purpose:** the plugin and the CLI only warn and exit 0 unless you pass `--strict`; the Action and the example workflow run with `strict: true`, so a finding fails the job. Set `strict: false` on the Action to warn only.
 
-Inputs: `path` (default `.`), `base` (default `origin/<target branch>`), `strict` (default `true`). Outputs (for later steps, use `if: always()` since a strict failure ends the job): `findings` (total), `errors` (`auth-removed`, `policy-downgrade`, `base-unresolved`), `warnings` (all others), `routes`. The same counts are in `check --json`. The action exists from `v0.1.4` (earlier tags have an `action.yml` the Marketplace rejects); the copyable workflow below does the same without it.
+Inputs: `path` (default `.`), `base` (default `origin/<target branch>`), `strict` (default `true`). Outputs (for later steps, use `if: always()` since a strict failure ends the job): `findings` (total), `errors` (`auth-removed`, `policy-downgrade`, `base-unresolved`), `warnings` (all others), `routes`. The same counts are in `check --json`. The action exists from `v0.1.5` (earlier tags have an `action.yml` the Marketplace rejects); the copyable workflow below does the same without it.
 
-Or copy [`examples/github-action/route-protection-intent.yml`](examples/github-action/route-protection-intent.yml) into `.github/workflows/`. It runs `check --base origin/<target branch> --format github --strict`, so findings appear as annotations on the changed files and the job fails. The workflow clones this repo at the release in `ROUTE_PROTECTION_INTENT_REF` (`v0.1.4`), so it works in any project. Move it to a newer tag on purpose. A tag can in principle be moved by the repo owner, so pin a full commit hash if you want the strictest setting. It was verified by running its steps against a separate test repository, not yet on a live pull request in another repo.
+Or copy [`examples/github-action/route-protection-intent.yml`](examples/github-action/route-protection-intent.yml) into `.github/workflows/`. It runs `check --base origin/<target branch> --format github --strict`, so findings appear as annotations on the changed files and the job fails. The workflow clones this repo at the release in `ROUTE_PROTECTION_INTENT_REF` (`v0.1.5`), so it works in any project. Move it to a newer tag on purpose. A tag can in principle be moved by the repo owner, so pin a full commit hash if you want the strictest setting. It was verified by running its steps against a separate test repository, not yet on a live pull request in another repo.
 
 `--base` needs full git history (`fetch-depth: 0`). If the ref cannot be used, `check` reports `base-unresolved` and fails instead of passing without a comparison.
 

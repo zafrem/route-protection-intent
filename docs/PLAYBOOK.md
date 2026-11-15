@@ -149,13 +149,13 @@ Git pre-commit hook (`.git/hooks/pre-commit`, make it executable):
 node plugins/route-protection-intent/cli/bin/route-protection-intent.js check . --strict || exit 1
 ```
 
-GitHub Actions on pull requests: copy `examples/github-action/route-protection-intent.yml` into your own project. It checks out full history, clones route-protection-intent at the release in `ROUTE_PROTECTION_INTENT_REF` (`v0.1.4`), and runs
+GitHub Actions on pull requests: copy `examples/github-action/route-protection-intent.yml` into your own project. It checks out full history, clones route-protection-intent at the release in `ROUTE_PROTECTION_INTENT_REF` (`v0.1.5`), and runs
 ```bash
 node "$RUNNER_TEMP/route-protection-intent/bin/route-protection-intent.js" check . --base "origin/$BASE_BRANCH" --format github --strict
 ```
 so each finding shows as an annotation on the changed file (`auth-removed` and `policy-downgrade` as errors, the rest as warnings). Move the pin to a newer tag on purpose; a tag can in principle be moved, so use a full commit hash for the strictest setting. If the app is in a subfolder, replace `.` with that folder.
 
-Instead of copying the workflow you can use the Action, `zafrem/route-protection-intent@v0.1.4` (displayed as "Route Protection Check"). Inputs: `path`, `base`, `strict` (default `true`; `false` warns only). Outputs for later steps: `findings`, `errors` (`auth-removed`, `policy-downgrade`, `base-unresolved`), `warnings` and `routes`. Use `if: always()` on a step that reads them, because a strict failure ends the job. The CLI writes them with `check --github-output` when `$GITHUB_OUTPUT` is set.
+Instead of copying the workflow you can use the Action, `zafrem/route-protection-intent@v0.1.5` (displayed as "Route Protection Check"). Inputs: `path`, `base`, `strict` (default `true`; `false` warns only). Outputs for later steps: `findings`, `errors` (`auth-removed`, `policy-downgrade`, `base-unresolved`), `warnings` and `routes`. Use `if: always()` on a step that reads them, because a strict failure ends the job. The CLI writes them with `check --github-output` when `$GITHUB_OUTPUT` is set.
 
 `--base` needs the base commit available locally. A shallow clone (`fetch-depth: 1`) or a mistyped ref cannot compare, so `check` reports `base-unresolved` and exits 1 instead of passing without a comparison. Keep `fetch-depth: 0`.
 

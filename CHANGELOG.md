@@ -4,6 +4,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Releases up to 0
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-11-15
+
 - Review record: optional `reason.reviewedBy` and `reason.reviewedAt` in a sidecar (both or neither, `source: user`). `check` reports `review-stale` when the route code changed after the review day; `report` adds a REVIEWED column when any review exists.
 - The Action now has outputs: `findings`, `errors`, `warnings` and `routes` (`check --github-output` writes them to `$GITHUB_OUTPUT`).
 - The marketplace entry declares `license: MIT`. The README states the license, the naming (project vs plugin vs Action) and that the Action defaults to `strict: true` while the plugin and CLI only warn.

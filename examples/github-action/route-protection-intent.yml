@@ -10,7 +10,7 @@ permissions:
 env:
   # The route-protection-intent release to run. Pinned so a change upstream cannot alter your CI.
   # Move it to a newer tag on purpose, after reading its changelog.
-  ROUTE_PROTECTION_INTENT_REF: v0.1.4
+  ROUTE_PROTECTION_INTENT_REF: v0.1.5
 
 jobs:
   check:
