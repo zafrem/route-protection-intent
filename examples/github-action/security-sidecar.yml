@@ -10,7 +10,7 @@ permissions:
 env:
   # The security-sidecar release to run. Pinned so a change upstream cannot alter your CI.
   # Move it to a newer tag on purpose, after reading its changelog.
-  SECURITY_SIDECAR_REF: v0.1.1
+  SECURITY_SIDECAR_REF: v0.1.2
 
 jobs:
   check:

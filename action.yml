@@ -1,5 +1,5 @@
 name: 'security-sidecar check'
-description: 'Warn on a pull request when a route no longer matches its recorded protection intent, for example a removed authentication check.'
+description: 'Warns on a pull request when a route stops matching its recorded protection intent, such as a removed auth check.'
 author: 'zafrem'
 branding:
   icon: 'shield'
