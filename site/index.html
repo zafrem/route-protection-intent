@@ -36,40 +36,57 @@ ol.steps li{margin:6px 0}
 .btn.coffee{background:#ffdd00;border-color:#ffdd00;color:#000}
 footer{margin-top:48px;color:var(--muted);font-size:.9rem}
 
-.demo{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin:8px 0 0}
-.demo-steps{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
-.demo-steps button{font:inherit;font-size:.9rem;font-weight:600;color:var(--muted);background:transparent;border:1px solid var(--line);border-radius:999px;padding:5px 14px;cursor:pointer;transition:all .3s}
-.demo-steps button[aria-current="true"]{color:var(--bg);background:var(--accent);border-color:var(--accent)}
-.demo-steps .spacer{flex:1}
-.demo-steps .ctl{font-weight:500}
-.demo-panes{display:grid;gap:12px;grid-template-columns:1fr 1fr}
-@media(max-width:640px){.demo-panes{grid-template-columns:1fr}}
-.pane{background:var(--code);border:1px solid var(--line);border-radius:10px;overflow:hidden;position:relative;transition:border-color .4s,box-shadow .4s}
-.pane h4{margin:0;padding:6px 12px;font:600 .78rem/1.4 ui-monospace,Menlo,Consolas,monospace;color:var(--muted);border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:8px}
-.pane pre{margin:0;border:0;border-radius:0;background:transparent;padding:10px 12px;font-size:.82rem;line-height:1.55;min-height:9.5em;overflow:hidden}
-.ln{display:block;white-space:pre;transition:opacity .5s,max-height .6s,background .5s,color .5s;max-height:2em;border-radius:3px}
-.ln.auth{background:transparent}
-.demo[data-stage="1"] .ln.auth{background:rgba(45,160,100,.22)}
-.demo[data-stage="2"] .ln.auth,.demo[data-stage="3"] .ln.auth{background:rgba(220,60,60,.22);color:#d14343;text-decoration:line-through;opacity:0;max-height:0;transition-delay:.9s,.9s,0s,0s}
-.demo[data-stage="2"] .ln.auth{opacity:1;max-height:2em;transition:none;animation:gone 1.6s .3s forwards}
-@keyframes gone{0%{opacity:1;max-height:2em}60%{opacity:1;max-height:2em}100%{opacity:0;max-height:0}}
-.side-body{opacity:0;transform:translateY(6px);transition:opacity .6s,transform .6s}
-.demo:not([data-stage="0"]) .side-body{opacity:1;transform:none}
-.demo[data-stage="0"] .side-ph{opacity:1}
-.side-ph{position:absolute;left:12px;top:44px;color:var(--muted);font-size:.82rem;opacity:0;transition:opacity .3s}
-.badge{display:inline-block;padding:0 8px;border-radius:999px;font-size:.72rem;font-weight:700;background:var(--accent);color:var(--bg);opacity:0;transition:opacity .4s .5s}
-.demo:not([data-stage="0"]) .badge{opacity:1}
-.demo[data-stage="3"] .pane.side{border-color:#d14343;box-shadow:0 0 0 3px rgba(209,67,67,.25);animation:pulse 1.2s 2}
-@keyframes pulse{50%{box-shadow:0 0 0 7px rgba(209,67,67,.1)}}
-.pr{display:inline-block;font-size:.72rem;font-weight:700;padding:0 8px;border-radius:999px;background:#b9770e;color:#fff;opacity:0;transition:opacity .4s}
-.demo[data-stage="2"] .pr,.demo[data-stage="3"] .pr{opacity:1}
-.term{margin-top:12px;background:#0a1220;color:#d6e2f0;border-radius:10px;padding:10px 12px;font:.8rem/1.55 ui-monospace,Menlo,Consolas,monospace;min-height:7.6em;white-space:pre-wrap;word-break:break-word}
-.term .err{color:#ff7b72}
-.term .dim{color:#8aa0b8}
-.term .cur{display:inline-block;width:.55em;height:1em;background:#d6e2f0;vertical-align:-2px;animation:blink 1s steps(1) infinite}
-@keyframes blink{50%{opacity:0}}
-.caption{margin:12px 2px 0;color:var(--muted);font-size:.92rem;min-height:3em}
-@media(prefers-reduced-motion:reduce){*{animation-duration:.001s!important;animation-iteration-count:1!important;transition-duration:.001s!important}}
+
+.demo{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin:8px 0 0}
+.demo-top{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.demo-top button{font:inherit;font-size:.88rem;font-weight:600;color:var(--muted);background:transparent;border:1px solid var(--line);border-radius:999px;padding:5px 14px;cursor:pointer;transition:all .3s}
+.demo-top button[aria-current="true"]{color:var(--bg);background:var(--accent);border-color:var(--accent)}
+.demo-top .spacer{flex:1}
+.headline{font-size:1.15rem;font-weight:700;margin:4px 0 2px;min-height:1.6em}
+.sub{margin:0 0 14px;color:var(--muted);min-height:3.2em}
+.doors{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));position:relative}
+.door{border:2px solid var(--line);border-radius:12px;padding:12px;background:var(--bg);position:relative;transition:border-color .4s,background .4s,box-shadow .4s}
+.door .path{font:700 .9rem ui-monospace,Menlo,Consolas,monospace;margin-bottom:10px}
+.row{display:flex;flex-direction:column;gap:2px;padding:6px 8px;border-radius:8px;margin-top:6px;font-size:.88rem;line-height:1.35}
+.row .k{font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700}
+.meant{border:1px dashed var(--line);opacity:0;transform:translateY(6px);transition:opacity .5s,transform .5s}
+.demo:not([data-stage="0"]) .meant{opacity:1;transform:none}
+.door:nth-child(2) .meant{transition-delay:.3s}.door:nth-child(3) .meant{transition-delay:.6s}.door:nth-child(4) .meant{transition-delay:.9s}
+.code{border:1px solid var(--line);background:var(--card)}
+.v .bad,.v .good{display:none}
+.good{color:#1a8a4a;font-weight:600}
+.bad{color:#d14343;font-weight:700}
+@media(prefers-color-scheme:dark){.good{color:#4ade80}.bad{color:#ff7b72}}
+.door .open-code{display:inline}
+.door.open-route .v .good,.door.fixed .v .good{display:inline}
+.door.gone .v .good{display:inline}
+.door.gone .v .bad{display:none}
+.demo[data-stage="2"] .door.gone .v .good,.demo[data-stage="3"] .door.gone .v .good{display:none}
+.demo[data-stage="2"] .door.gone .v .bad,.demo[data-stage="3"] .door.gone .v .bad{display:inline}
+.demo[data-stage="2"] .door.gone .code,.demo[data-stage="3"] .door.gone .code{animation:flash 1s 2}
+@keyframes flash{50%{background:rgba(209,67,67,.25)}}
+.result{margin-top:8px;padding:6px 8px;border-radius:8px;font-size:.85rem;font-weight:700;opacity:0;transition:opacity .4s}
+.result.ok{color:#1a8a4a;background:rgba(45,160,100,.15)}
+.result.fail{color:#d14343;background:rgba(209,67,67,.14)}
+@media(prefers-color-scheme:dark){.result.ok{color:#4ade80}.result.fail{color:#ff7b72}}
+.demo[data-stage="3"] .result{opacity:1}
+.demo[data-stage="3"] .door:nth-child(1) .result{transition-delay:.4s}
+.demo[data-stage="3"] .door:nth-child(2) .result{transition-delay:1.2s}
+.demo[data-stage="3"] .door:nth-child(3) .result{transition-delay:2s}
+.demo[data-stage="3"] .door:nth-child(4) .result{transition-delay:2.8s}
+.demo[data-stage="3"] .door{animation:scan .8s both}
+.demo[data-stage="3"] .door:nth-child(1){animation-delay:.1s}.demo[data-stage="3"] .door:nth-child(2){animation-delay:.9s}
+.demo[data-stage="3"] .door:nth-child(3){animation-delay:1.7s}.demo[data-stage="3"] .door:nth-child(4){animation-delay:2.5s}
+@keyframes scan{0%{box-shadow:0 0 0 0 var(--accent)}40%{box-shadow:0 0 0 4px var(--accent)}100%{box-shadow:0 0 0 0 transparent}}
+.demo[data-stage="3"] .door.gone{border-color:#d14343;background:rgba(209,67,67,.07);transition-delay:1.7s}
+.chip{position:absolute;top:-12px;right:10px;background:#b9770e;color:#fff;font-size:.72rem;font-weight:700;border-radius:999px;padding:2px 10px;opacity:0;transform:translateY(-6px);transition:opacity .4s,transform .4s}
+.demo[data-stage="2"] .chip,.demo[data-stage="3"] .chip{opacity:1;transform:none}
+.legend{margin:14px 0 0;color:var(--muted);font-size:.88rem}
+details{border:1px solid var(--line);border-radius:12px;background:var(--card);padding:4px 16px;margin:14px 0}
+details>summary{cursor:pointer;font-weight:700;padding:10px 0}
+details[open]>summary{border-bottom:1px solid var(--line);margin-bottom:8px}
+.lead{font-size:1.1rem}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.001s!important;animation-iteration-count:1!important;transition-duration:.001s!important;transition-delay:0s!important}}
 </style>
 </head>
 <body>
@@ -88,47 +105,49 @@ footer{margin-top:48px;color:var(--muted);font-size:.9rem}
 
 <p class="note"><strong>Advice, not a firewall.</strong> A sidecar records intent and blocks nothing in its default annotate mode. It is not a secure-coding rule set or a linter: use <code>/security-review</code> and your own scanners for that.</p>
 
-<h2>The problem</h2>
-<p>An AI assistant writes a route and gets the protection right, or quietly gets it wrong. Weeks later another change, by the AI or a person, removes a check. Nothing records what the route was <em>supposed</em> to do, so nothing can say that something is missing.</p>
-
-<h2>How it works</h2>
-<ol class="steps">
-  <li><strong>Record.</strong> When a route is written, a small <code>.route.json</code> sidecar next to it says what it should be: public, login-only or internal. Clear cases are saved silently; unsure ones ask you and default to secured.</li>
-  <li><strong>Compare.</strong> <code>check</code> reads the sidecar and the route code and reports where they disagree.</li>
-  <li><strong>Catch.</strong> On a pull request, it flags an authentication check that was removed from a protected route, or a sidecar that was quietly weakened.</li>
-</ol>
-
-
-<h2>See it in action</h2>
+<h2>The idea, in 30 seconds</h2>
+<p class="lead">Think of each page and API of your app as a <strong>door</strong>. Some doors are meant to be open to everyone, others only for logged-in people. This tool <strong>writes that down</strong> for every door, then <strong>checks that the lock is still there</strong>.</p>
 <div class="demo" id="demo" data-stage="0">
-  <div class="demo-steps" role="group" aria-label="Demo steps">
-    <button type="button" data-go="1">1 Record</button>
-    <button type="button" data-go="2">2 Change</button>
-    <button type="button" data-go="3">3 Catch</button>
+  <div class="demo-top" role="group" aria-label="Demo steps">
+    <button type="button" data-go="0">Your app</button>
+    <button type="button" data-go="1">1 Write it down</button>
+    <button type="button" data-go="2">2 Someone changes the code</button>
+    <button type="button" data-go="3">3 The check</button>
     <span class="spacer"></span>
-    <button type="button" class="ctl" id="demo-toggle" aria-pressed="false">Pause</button>
+    <button type="button" id="demo-toggle" aria-pressed="false">Pause</button>
   </div>
-  <div class="demo-panes">
-    <div class="pane">
-      <h4><span>app/api/orders/route.ts</span><span class="pr">PR #42</span></h4>
-<pre><code><span class="ln">export async function GET() {</span><span class="ln auth">  const session = await getServerSession();</span><span class="ln auth">  if (!session) return new Response('Unauthorized', { status: 401 });</span><span class="ln">  return Response.json(await listOrders());</span><span class="ln">}</span></code></pre>
+  <div class="headline" id="headline"></div>
+  <p class="sub" id="sub"></p>
+  <div class="doors">
+    <div class="door ">
+      <div class="path">/blog</div>
+      <div class="row meant"><span class="k">Meant to be</span><span class="v">Anyone can see it</span></div>
+      <div class="row code"><span class="k">The code does</span><span class="v"><span class="good" style="display:inline">Nothing to check</span></span></div>
+      <div class="result ok">Matches</div>
     </div>
-    <div class="pane side">
-      <h4><span>app/api/orders/.route.json</span><span class="badge">authenticated</span></h4>
-      <div class="side-ph">no sidecar yet</div>
-<pre class="side-body"><code>{
-  "version": 1,
-  "route": "/api/orders",
-  "methods": {
-    "GET": { "exposure": "authenticated" }
-  }
-}</code></pre>
+    <div class="door gone">
+      <span class="chip">Pull request</span>
+      <div class="path">/api/orders</div>
+      <div class="row meant"><span class="k">Meant to be</span><span class="v">Login required</span></div>
+      <div class="row code"><span class="k">The code does</span><span class="v"><span class="good">Checks that you are logged in</span><span class="bad">No login check</span></span></div>
+      <div class="result fail">Mismatch! Meant for logged-in users, but the check is gone</div>
+    </div>
+    <div class="door ">
+      <div class="path">/account/settings</div>
+      <div class="row meant"><span class="k">Meant to be</span><span class="v">Login required</span></div>
+      <div class="row code"><span class="k">The code does</span><span class="v"><span class="good" style="display:inline">Checks that you are logged in</span></span></div>
+      <div class="result ok">Matches</div>
+    </div>
+    <div class="door ">
+      <div class="path">/api/health</div>
+      <div class="row meant"><span class="k">Meant to be</span><span class="v">Anyone can see it</span></div>
+      <div class="row code"><span class="k">The code does</span><span class="v"><span class="good" style="display:inline">Nothing to check</span></span></div>
+      <div class="result ok">Matches</div>
     </div>
   </div>
-  <div class="term" id="term" aria-live="off"></div>
-  <p class="caption" id="caption"></p>
+  <p class="legend">Each box is one route of your app. "Meant to be" is the note saved next to the code (a small <code>.route.json</code> file). "The code does" is what the check finds in the code itself.</p>
 </div>
-<noscript><p style="color:var(--muted)">The animation needs JavaScript. In short: record the intent, a later change removes the session check, and <code>check</code> reports <code>auth-removed</code>.</p></noscript>
+<noscript><p style="color:var(--muted)">The animation needs JavaScript. In short: the intended protection of each route is written down; later a change removes a login check; the check notices that the code no longer matches the note.</p></noscript>
 
 <div class="grid">
   <div class="card"><h3>Catches drift</h3><p>Intent says protected, code shows no authentication check, or a pull request removed the one that was there.</p></div>
@@ -137,7 +156,8 @@ footer{margin-top:48px;color:var(--muted);font-size:.9rem}
   <div class="card"><h3>Guards admin pages</h3><p>An extra gate (SSO, MFA or a passphrase of 8+ characters), a network restriction, and no links or sitemap entries unless you approve.</p></div>
 </div>
 
-<h2>Catching a removed check</h2>
+<details><summary>For developers: what the check prints</summary>
+<h2 style="margin-top:12px">Catching a removed check</h2>
 <pre><code>$ route-protection-intent check . --base origin/main --format github --strict
 ::error file=app/api/orders/route.ts,title=auth-removed::an authentication
 check present at origin/main is gone from this route, but its sidecar
@@ -179,6 +199,9 @@ ROUTE              METHOD  EXPOSURE       GATE  VIA  DECIDED BY  AUTH CHECK  GAP
 }</code></pre>
 <p style="color:var(--muted);font-size:.9rem">This is the file <code>save</code> writes for a typical API route. It is a small file, reviewed in the diff like any other.</p>
 
+</details>
+
+<details><summary>For developers: what it is and is not</summary>
 <h2>What it is not</h2>
 <table>
 <tr><th></th><th>route-protection-intent</th><th>Rule sets and linters</th></tr>
@@ -186,6 +209,8 @@ ROUTE              METHOD  EXPOSURE       GATE  VIA  DECIDED BY  AUTH CHECK  GAP
 <tr><td>Needs</td><td>A recorded intent per route</td><td>Rules or patterns</td></tr>
 <tr><td>Use for</td><td>Drift, removed checks, downgrades</td><td><code>/security-review</code>, Semgrep, ESLint security rules</td></tr>
 </table>
+
+</details>
 
 <h2>Install</h2>
 <pre><code>/plugin marketplace add zafrem/route-protection-intent
@@ -209,50 +234,26 @@ ROUTE              METHOD  EXPOSURE       GATE  VIA  DECIDED BY  AUTH CHECK  GAP
 </footer>
 </main>
 
+
 <script>
 (function(){
-  var demo=document.getElementById('demo'),term=document.getElementById('term'),cap=document.getElementById('caption'),tog=document.getElementById('demo-toggle');
+  var demo=document.getElementById('demo'),hl=document.getElementById('headline'),sub=document.getElementById('sub'),tog=document.getElementById('demo-toggle');
   var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var CMD='$ route-protection-intent check . --base origin/main --strict';
-  var ERR='[auth-removed] app/api/orders/route.ts: an authentication check present at origin/main is gone from this route, but its sidecar says it must be protected.';
-  var CAPS=['A route is written. Its intent is recorded next to the code.',
-    'The AI writes a sidecar: this route needs a login. The session check in the code is what enforces it.',
-    'Weeks later, another change removes the session check. Nothing breaks, and the route is now open.',
-    'On the pull request, check compares the recorded intent with the code and flags the mismatch.'];
-  var stage=0,timers=[],paused=false,visible=true,typing=null;
-  function clear(){timers.forEach(clearTimeout);timers=[];clearInterval(typing)}
-  function later(f,ms){timers.push(setTimeout(f,ms))}
-  function html(t){return t.replace(/&/g,'&amp;').replace(/</g,'&lt;')}
-  function setTerm(stage,animate){
-    clearInterval(typing);
-    if(stage<3){term.innerHTML='<span class="dim">$ </span><span class="cur"></span>';return}
-    if(!animate){term.innerHTML=html(CMD)+'\n<span class="err">'+html(ERR)+'</span>\n<span class="dim">1 finding, exit code 1</span>';return}
-    var i=0;typing=setInterval(function(){
-      i++;term.innerHTML=html(CMD.slice(0,i))+(i<CMD.length?'<span class="cur"></span>':'');
-      if(i>=CMD.length){clearInterval(typing);
-        later(function(){term.innerHTML=html(CMD)+'\n<span class="dim">checking 1 route...</span>'},300);
-        later(function(){term.innerHTML=html(CMD)+'\n<span class="err">'+html(ERR)+'</span>\n<span class="dim">1 finding, exit code 1</span>'},1100);
-      }},28);
-  }
-  function show(n,animate){
-    stage=n;demo.setAttribute('data-stage',n);cap.textContent=CAPS[n];
-    demo.querySelectorAll('[data-go]').forEach(function(b){b.setAttribute('aria-current',String(+b.dataset.go===n))});
-    setTerm(n,animate);
-  }
-  function schedule(){
-    clear();if(paused||reduce||!visible)return;
-    var dur=[1800,4200,4200,7500][stage];
-    later(function(){var nxt=stage===3?0:stage+1;show(nxt,true);schedule()},dur);
-  }
-  demo.querySelectorAll('[data-go]').forEach(function(b){b.addEventListener('click',function(){clear();show(+b.dataset.go,true);schedule()})});
-  tog.addEventListener('click',function(){paused=!paused;tog.textContent=paused?'Play':'Pause';tog.setAttribute('aria-pressed',String(paused));
-    if(paused){clear()}else{schedule()}});
-  if(reduce){tog.hidden=true;show(3,false)}else{
-    show(0,false);
-    if('IntersectionObserver' in window){
-      new IntersectionObserver(function(e){visible=e[0].isIntersecting;if(visible){schedule()}else{clear()}},{threshold:.3}).observe(demo);
-    }else{schedule()}
-  }
+  var T=[
+    ['Your app has pages and APIs.','Each one is a "route", like a door. Right now nothing says which doors should be open and which should be locked.'],
+    ['Step 1: write down what each one should be.','The AI (or you) saves a short note next to each route: open to anyone, or login required. Clear cases are saved silently, unsure ones ask you.'],
+    ['Step 2: later, a code change removes a login check.','It happens in a normal pull request, by a person or an AI. The app still runs, so nobody notices that /api/orders is now open to everyone.'],
+    ['Step 3: the check compares the notes with the code.','It finds that /api/orders is meant to need a login but its check is gone, and warns on the pull request before it is merged.']
+  ];
+  var DUR=[3500,6000,6000,9000],stage=0,timer=null,paused=false,visible=true;
+  function show(n){stage=n;demo.setAttribute('data-stage',n);hl.textContent=T[n][0];sub.textContent=T[n][1];
+    demo.querySelectorAll('[data-go]').forEach(function(b){b.setAttribute('aria-current',String(+b.dataset.go===n))})}
+  function stop(){clearTimeout(timer)}
+  function plan(){stop();if(paused||reduce||!visible)return;timer=setTimeout(function(){show(stage===3?0:stage+1);plan()},DUR[stage])}
+  demo.querySelectorAll('[data-go]').forEach(function(b){b.addEventListener('click',function(){show(+b.dataset.go);plan()})});
+  tog.addEventListener('click',function(){paused=!paused;tog.textContent=paused?'Play':'Pause';tog.setAttribute('aria-pressed',String(paused));paused?stop():plan()});
+  if(reduce){tog.hidden=true;show(3)}else{show(0);
+    if('IntersectionObserver' in window){new IntersectionObserver(function(e){visible=e[0].isIntersecting;visible?plan():stop()},{threshold:.3}).observe(demo)}else{plan()}}
 })();
 </script>
 </body>
