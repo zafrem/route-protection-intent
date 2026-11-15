@@ -14,7 +14,7 @@
       "minProperties": 1,
       "additionalProperties": false,
       "patternProperties": {
-        "^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|\\*)$": { "$ref": "#/$defs/policy" }
+        "^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|\\*)( /\\S*)?$": { "$ref": "#/$defs/policy" }
       }
     },
     "enforcement": {

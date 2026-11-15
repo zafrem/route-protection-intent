@@ -8,7 +8,7 @@ function parseArgs(argv) {
     const a = argv[i];
     if (a.startsWith('--')) {
       const k = a.slice(2);
-      if (['strict', 'json'].includes(k)) flags[k] = true; else flags[k] = argv[++i];
+      if (['strict', 'json', 'include-mutating', 'allow-remote'].includes(k)) flags[k] = true; else flags[k] = argv[++i];
     } else pos.push(a);
   }
   return { pos, flags };
@@ -46,13 +46,36 @@ function main(argv) {
         else process.stdout.write(require('./check').format(r) + '\n');
         return r.exitCode;
       }
+      case 'report': {
+        const { report, format } = require('./report');
+        const r = report(path.resolve(rest[0] || process.cwd()), { strict: !!flags.strict });
+        process.stdout.write(format(r, flags.format || (flags.json ? 'json' : 'table')) + '\n');
+        return r.exitCode;
+      }
+      case 'verify': {
+        const { verify, format } = require('./verify');
+        return verify(path.resolve(rest[0] || process.cwd()), {
+          baseUrl: flags['base-url'], includeMutating: !!flags['include-mutating'], allowRemote: !!flags['allow-remote'], strict: !!flags.strict,
+          timeoutMs: flags.timeout ? Number(flags.timeout) : undefined, delayMs: flags.delay ? Number(flags.delay) : 0,
+        }).then((r) => {
+          process.stdout.write(format(r, flags.format || (flags.json ? 'json' : 'table')) + '\n');
+          return r.exitCode;
+        }).catch((e) => { out({ ok: false, error: e.message }); return 2; });
+      }
+      case 'spec': {
+        if (!rest[0]) throw new Error('usage: security-sidecar spec <openapi.json> [root] [--prefix /api] [--format table|md|json|csv] [--strict]');
+        const { compareSpec, format } = require('./spec');
+        const r = compareSpec(path.resolve(rest[1] || process.cwd()), path.resolve(rest[0]), { prefix: flags.prefix, strict: !!flags.strict });
+        process.stdout.write(format(r, flags.format || (flags.json ? 'json' : 'table')) + '\n');
+        return r.exitCode;
+      }
       case 'compile': {
         const r = require('./compile').compile(path.resolve(rest[0] || process.cwd()), flags.target);
         const { code, ...body } = r; out(body);
         return code;
       }
       default:
-        process.stderr.write('usage: security-sidecar <analyze|save|check|compile> ...\n');
+        process.stderr.write('usage: security-sidecar <analyze|save|check|report|verify|spec|compile> ...\n');
         return 64;
     }
   } catch (e) {

@@ -1,0 +1,3 @@
+import { getServerSession } from 'next-auth';
+export async function GET() { const session = await getServerSession(); if (!session) return new Response('Unauthorized', { status: 401 }); return Response.json([]); }
+export async function POST() { const session = await getServerSession(); if (!session) return new Response('Unauthorized', { status: 401 }); return Response.json({}); }

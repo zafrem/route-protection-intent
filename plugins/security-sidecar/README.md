@@ -22,13 +22,16 @@ Requires Node 18 or newer. The CLI is bundled in this plugin; nothing else is in
 | Hook (`PostToolUse` on `Write` and `Edit`) | Runs route analysis on route files, and warns about links to admin routes in any edited file |
 | Skill `route-policy` | Saves clear classifications silently; asks you when unsure, for an admin gate, and before any link to a protected route is kept |
 | `/security-sidecar:check` | Finds missing, orphan, invalid and unclassified sidecars, exposed admin paths, and code that drifted from the recorded intent (`--base <git-ref>` also catches removed auth checks and downgrades) |
+| `/security-sidecar:report` | The route inventory: each route and method with its recorded protection, who decided it, whether an authentication check is visible in the code, and the gaps |
+| `/security-sidecar:verify` | Sends requests without credentials to a running local or staging app and compares each answer with the recorded protection (a protected route answering 200 is a gap) |
+| `/security-sidecar:spec` | Compares an OpenAPI (JSON) document with the recorded protection and lists mismatches |
 | `/security-sidecar:compile` | Opt-in: builds `routes-manifest.json` and an Nginx config from `mode: enforce` sidecars |
 
 ## What it does not do
 
 - It does not enforce anything in `annotate` mode, and it never writes authentication code into your route source.
 - It does not store secrets. An admin gate records only a type and a minimum length.
-- It detects file-based routes (Next.js, and Express or FastAPI by file path). Routes registered only in code are not found.
+- It finds routes by file path (Next.js, SvelteKit, Nuxt, `routes/`) and by reading route strings in code for many languages (see the main README). Only Next.js is tested end to end; the others are untested on real projects, and router mount prefixes are not resolved.
 
 ## More
 

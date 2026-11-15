@@ -67,7 +67,7 @@ The directory lists a plugin as a small catalog entry that points at a git repo,
 
 ## Facts reviewers will want
 
-- The plugin makes no network calls, collects no data and uses no external services (SRS NFR-2).
+- The plugin collects no data and uses no external services (SRS NFR-2). The hook, `check`, `report` and `analyze` make no network calls. Only the explicit `/security-sidecar:verify` command sends requests, and only to the address the user passes (local by default, anything else needs `--allow-remote`), without cookies, tokens or bodies, and with safe methods only unless `--include-mutating` is passed.
 - The hook runs only the bundled Node script in the plugin folder. File paths and source text are parsed in-process and never used to build shell commands.
 - The plugin writes only sidecar files and, if asked, generated manifests. It never edits route source (NFR-6) and never stores secrets.
 - By default it records intent only and enforces nothing, and the README says so at the top.

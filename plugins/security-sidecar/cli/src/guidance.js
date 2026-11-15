@@ -4,7 +4,14 @@
 function frameworkOf(relPath) {
   if (/\.py$/.test(relPath)) return 'fastapi';
   if (/\.go$/.test(relPath)) return 'go';
-  if (/\.java$/.test(relPath)) return 'java';
+  if (/\.(?:java|kts?)$/.test(relPath)) return 'java';
+  if (/\.cs$/.test(relPath)) return 'csharp';
+  if (/\.rb$/.test(relPath)) return 'ruby';
+  if (/\.php$/.test(relPath)) return 'php';
+  if (/\.rs$/.test(relPath)) return 'rust';
+  if (/\.exs?$/.test(relPath)) return 'elixir';
+  if (/\.swift$/.test(relPath)) return 'swift';
+  if (/\.dart$/.test(relPath)) return 'dart';
   if (/(^|\/)(app|pages)\//.test(relPath)) return 'nextjs';
   return 'express';
 }
@@ -15,6 +22,13 @@ const AUTH = {
   express: 'Mount an auth middleware on this router (for example `router.use(requireAuth)`) and respond 401/403 when it fails.',
   go: 'Verify the caller identity from context/middleware inside the handler and return `http.StatusUnauthorized` / `http.StatusForbidden` when missing.',
   java: 'Require authentication via Spring Security (`@PreAuthorize` / SecurityFilterChain) and verify caller identity before acting.',
+  csharp: 'Add `[Authorize]` to the controller or `.RequireAuthorization()` to the endpoint, and keep `[AllowAnonymous]` for the few public ones.',
+  ruby: 'Add `before_action :authenticate_user!` (or your own filter) to the controller and respond 401/403 when it fails.',
+  php: 'Put the route in an auth middleware group (for example `Route::middleware(\'auth\')`) and respond 401/403 when it fails.',
+  rust: 'Require an authenticated-user extractor or middleware on this route and return 401/403 when it is missing.',
+  elixir: 'Pipe the route through an authentication plug (for example `pipe_through [:browser, :require_authenticated_user]`).',
+  swift: 'Group the route under an authenticator and guard middleware (`req.auth.require(...)`) and return 401/403 when it fails.',
+  dart: 'Add an authentication middleware or handler wrapper to this router and return 401/403 when it fails.',
 };
 const CACHE = {
   nextjs: 'Prefer static generation or `revalidate` so the page is served from cache; export `metadata` (title, description, canonical).',
@@ -23,6 +37,7 @@ const CACHE = {
   go: 'Send `Cache-Control: public, max-age=...` on public responses.',
   java: 'Send `Cache-Control: public, max-age=...` on public responses.',
 };
+for (const k of Object.keys(AUTH)) if (!CACHE[k]) CACHE[k] = 'Send `Cache-Control: public, max-age=...` on public responses.';
 
 function guidance({ exposure, relPath, isAdmin }) {
   const fw = frameworkOf(relPath);

@@ -5,7 +5,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
-const { analyzeSource } = require('../src/analyze');
+const { analyzeSource, analyze } = require('../src/analyze');
 const { save } = require('../src/save');
 const { check } = require('../src/check');
 const { compile } = require('../src/compile');
@@ -447,4 +447,316 @@ test('--base that cannot be used fails loudly instead of skipping the comparison
   spawnSync('git', ['add', '.'], { cwd: root });
   spawnSync('git', ['commit', '-m', 'init'], { cwd: root });
   assert.ok(!check(root, { base: 'HEAD' }).findings.some((f) => f.type === 'base-unresolved'), 'a real ref works');
+});
+
+test('report: one row per route and method, with gaps, deterministic, several formats', () => {
+  const { report, format } = require('../src/report');
+  const root = tmp();
+  const guarded = "export async function GET(){ await getServerSession(); }\nexport async function POST(){ await getServerSession(); }";
+  put(root, 'app/api/orders/route.ts', guarded);
+  put(root, 'app/api/orders/.route.json', JSON.stringify({ version: 1, route: '/api/orders', methods: { GET: { exposure: 'authenticated' }, POST: { exposure: 'authenticated' } }, reason: { source: 'user' } }));
+  put(root, 'app/api/exports/route.ts', 'export async function GET(){ return Response.json([]); }');
+  put(root, 'app/api/exports/.route.json', JSON.stringify({ version: 1, route: '/api/exports', methods: { GET: { exposure: 'authenticated' } }, reason: { source: 'heuristic' } }));
+  put(root, 'app/blog/page.tsx', 'export default function P(){ return null }');
+  put(root, 'app/blog/.route.json', JSON.stringify({ version: 1, route: '/blog', methods: { GET: { exposure: 'public' } }, reason: { source: 'heuristic' } }));
+  put(root, 'app/me/route.ts', 'export async function GET(){ await getServerSession(); }');
+  put(root, 'app/me/.route.json', JSON.stringify({ version: 1, route: '/me', methods: { GET: { exposure: 'public' } } }));
+  put(root, 'app/api/new/route.ts', 'export async function PUT(){}');
+  put(root, 'app/api/gone/.route.json', JSON.stringify({ version: 1, route: '/api/gone', methods: { GET: { exposure: 'public' } } }));
+  put(root, 'app/api/bad/.route.json', '{not json');
+  put(root, 'app/api/login/route.ts', 'export async function POST(){}');
+  put(root, 'app/api/login/.route.json', JSON.stringify({ version: 1, route: '/api/login', methods: { POST: { exposure: 'authenticated' } } }));
+  put(root, 'app/api/behind/route.ts', 'export async function GET(){}');
+  put(root, 'app/api/behind/.route.json', JSON.stringify({ version: 1, route: '/api/behind', enforcement: { via: ['api-gateway'] }, methods: { GET: { exposure: 'authenticated' } } }));
+
+  const r = report(root);
+  const get = (route, method) => r.rows.find((x) => x.route === route && x.method === method);
+  assert.deepStrictEqual([get('/api/orders', 'GET').authCheck, get('/api/orders', 'POST').authCheck, get('/api/orders', 'GET').gaps], ['yes', 'yes', []]);
+  assert.strictEqual(get('/api/orders', 'GET').decidedBy, 'user');
+  assert.deepStrictEqual(get('/api/exports', 'GET').gaps, ['protected-no-auth-check']);
+  assert.deepStrictEqual(get('/me', 'GET').gaps, ['public-with-auth-check']);
+  assert.deepStrictEqual(get('/blog', 'GET').gaps, []);
+  assert.deepStrictEqual(get('/api/new', 'PUT').gaps, ['no-sidecar']);
+  assert.deepStrictEqual(get('/api/gone', 'GET').gaps, ['orphan']);
+  assert.ok(r.rows.some((x) => x.exposure === '(invalid)' && x.gaps[0] === 'schema'));
+  assert.deepStrictEqual(get('/api/login', 'POST').gaps, [], 'sign-in endpoints are exempt');
+  assert.deepStrictEqual(get('/api/behind', 'GET').gaps, [], 'declared external control is not a gap');
+  assert.strictEqual(r.exitCode, 0);
+  assert.strictEqual(report(root, { strict: true }).exitCode, 1);
+
+  assert.strictEqual(format(r), format(report(root)), 'deterministic');
+  const keys = r.rows.map((x) => `${x.route} ${x.method}`);
+  assert.deepStrictEqual(keys, [...keys].sort((a, b) => (a.split(' ')[0] < b.split(' ')[0] ? -1 : a.split(' ')[0] > b.split(' ')[0] ? 1 : 0)), 'sorted by route');
+  assert.ok(/^ROUTE +METHOD +EXPOSURE/.test(format(r)));
+  assert.ok(/^\| ROUTE \|/m.test(format(r, 'md')) && /^# Route inventory/.test(format(r, 'md')));
+  assert.strictEqual(JSON.parse(format(r, 'json')).summary.routes, r.summary.routes);
+  assert.ok(format(r, 'csv').split('\n')[0].startsWith('ROUTE,METHOD'));
+  assert.throws(() => format(r, 'xml'));
+  assert.ok(r.summary.decidedByPerson >= 2);
+});
+
+test('report command runs through the CLI and exits 1 only with --strict and gaps', () => {
+  const root = tmp();
+  put(root, 'app/api/x/route.ts', 'export async function GET(){}');
+  const cli = path.join(__dirname, '..', 'bin', 'security-sidecar.js');
+  const plain = spawnSync('node', [cli, 'report', root], { encoding: 'utf8' });
+  assert.strictEqual(plain.status, 0);
+  assert.ok(/no-sidecar/.test(plain.stdout));
+  assert.strictEqual(spawnSync('node', [cli, 'report', root, '--strict'], { encoding: 'utf8' }).status, 1);
+  assert.ok(JSON.parse(spawnSync('node', [cli, 'report', root, '--format', 'json'], { encoding: 'utf8' }).stdout).rows.length === 1);
+});
+
+test('verify: probes a running app without credentials and compares with the recorded intent', async () => {
+  const http = require('http');
+  const { verify, format, buildPath, isLocal } = require('../src/verify');
+  const seen = [];
+  const server = http.createServer((req, res) => {
+    seen.push(`${req.method} ${req.url} auth=${req.headers.authorization || ''} cookie=${req.headers.cookie || ''}`);
+    const u = req.url;
+    if (u === '/api/orders') { res.writeHead(401); return res.end(); }
+    if (u === '/api/leak') { res.writeHead(200); return res.end('data'); }
+    if (u === '/blog') { res.writeHead(200); return res.end('hi'); }
+    if (u === '/api/pub-refused') { res.writeHead(403); return res.end(); }
+    if (u === '/dash') { res.writeHead(302, { location: '/login' }); return res.end(); }
+    if (u === '/api/orders/42') { res.writeHead(403); return res.end(); }
+    if (u === '/api/wrong-url') { res.writeHead(404); return res.end(); }
+    if (u === '/api/posts') { res.writeHead(req.method === 'POST' ? 401 : 200); return res.end(); }
+    res.writeHead(404); res.end();
+  });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  try {
+    const base = `http://127.0.0.1:${server.address().port}`;
+    const root = tmp();
+    const sc = (dir, route, methods, extra = {}) => {
+      put(root, `app${dir}/route.ts`, 'export async function GET(){}');
+      put(root, `app${dir}/.route.json`, JSON.stringify({ version: 1, route, methods, ...extra }));
+    };
+    sc('/api/orders', '/api/orders', { GET: { exposure: 'authenticated' } });
+    sc('/api/leak', '/api/leak', { GET: { exposure: 'authenticated' } });
+    sc('/blog', '/blog', { GET: { exposure: 'public' } });
+    sc('/api/pub-refused', '/api/pub-refused', { GET: { exposure: 'public' } });
+    sc('/dash', '/dash', { GET: { exposure: 'authenticated' } });
+    sc('/api/orders/[id]', '/api/orders/[id]', { GET: { exposure: 'authenticated' } });
+    sc('/api/wrong-url', '/api/wrong-url', { GET: { exposure: 'authenticated' } });
+    sc('/api/posts', '/api/posts', { GET: { exposure: 'public' }, POST: { exposure: 'authenticated' } });
+    sc('/api/unknown', '/api/unknown', { GET: { exposure: 'unclassified' } });
+
+    const r = await verify(root, { baseUrl: base });
+    const get = (route, m = 'GET') => r.rows.find((x) => x.route === route && x.method === m);
+    assert.strictEqual(get('/api/orders').result, 'pass');
+    assert.strictEqual(get('/api/leak').result, 'gap');
+    assert.ok(/anonymous request/.test(get('/api/leak').note));
+    assert.strictEqual(get('/blog').result, 'pass');
+    assert.strictEqual(get('/api/pub-refused').result, 'gap');
+    assert.strictEqual(get('/dash').result, 'pass', 'a redirect to login counts as refused');
+    assert.strictEqual(get('/api/orders/[id]').result, 'skipped', 'needs a sample value');
+    assert.strictEqual(get('/api/wrong-url').result, 'inconclusive', '404 never counts as a pass');
+    assert.strictEqual(get('/api/posts', 'POST').result, 'skipped', 'mutating methods are not sent by default');
+    assert.ok(!r.rows.some((x) => x.route === '/api/unknown'), 'unclassified routes are not probed');
+    assert.strictEqual(r.exitCode, 1, 'a gap fails the run');
+    assert.ok(!seen.some((x) => x.startsWith('POST ')), 'no POST was sent');
+    assert.ok(seen.every((x) => x.endsWith('auth= cookie=')), 'no credentials are ever sent');
+
+    put(root, '.security-sidecar.config.json', JSON.stringify({ verify: { samples: { id: 42 } } }));
+    const withSamples = await verify(root, { baseUrl: base, includeMutating: true });
+    assert.strictEqual(withSamples.rows.find((x) => x.route === '/api/orders/[id]').result, 'pass');
+    assert.strictEqual(withSamples.rows.find((x) => x.route === '/api/posts' && x.method === 'POST').result, 'pass');
+    assert.ok(seen.some((x) => x.startsWith('POST ')), 'POST is sent only when asked');
+
+    assert.ok(/^ROUTE +METHOD +RECORDED/.test(format(r)) && /RESULT/.test(format(r)));
+    assert.strictEqual(JSON.parse(format(r, 'json')).summary.gap, 2);
+    assert.ok(format(r, 'md').startsWith('# Live verification') && format(r, 'csv').startsWith('ROUTE,'));
+
+    // a server that is down is inconclusive, and --strict turns that into a failure
+    const down = await verify(root, { baseUrl: 'http://127.0.0.1:1', timeoutMs: 2000 });
+    assert.ok(down.rows.filter((x) => x.result !== 'skipped').every((x) => x.result === 'inconclusive'));
+    const noGap = tmp();
+    put(noGap, 'app/blog/page.tsx', 'export default function P(){return null}');
+    put(noGap, 'app/blog/.route.json', JSON.stringify({ version: 1, route: '/blog', methods: { GET: { exposure: 'public' } } }));
+    assert.strictEqual((await verify(noGap, { baseUrl: 'http://127.0.0.1:1', timeoutMs: 2000 })).exitCode, 0);
+    assert.strictEqual((await verify(noGap, { baseUrl: 'http://127.0.0.1:1', timeoutMs: 2000, strict: true })).exitCode, 1);
+  } finally { server.close(); }
+
+  await assert.rejects(() => verify(tmp(), { baseUrl: 'https://example.com' }), /not a local address/);
+  await assert.rejects(() => verify(tmp(), {}), /--base-url is required/);
+  await assert.rejects(() => verify(tmp(), { baseUrl: 'ftp://localhost' }), /http or https/);
+  assert.ok(isLocal('localhost') && isLocal('127.0.0.1') && isLocal('[::1]') && isLocal('app.localhost'));
+  assert.ok(!isLocal('example.com') && !isLocal('10.0.0.5') && !isLocal('127.0.0.1.evil.com'));
+  assert.deepStrictEqual(buildPath('/a/[id]/b/:name/{x}/[...rest]', { id: '1', name: 'n', x: 'y', rest: 'r' }), { path: '/a/1/b/n/y/r', missing: [] });
+  assert.deepStrictEqual(buildPath('/a/[id]', {}).missing, ['id']);
+});
+
+test('verify through the CLI: exit 1 on a gap, exit 2 on a refused remote target', async () => {
+  const http = require('http');
+  const server = http.createServer((req, res) => { res.writeHead(200); res.end(); });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  try {
+    const root = tmp();
+    put(root, 'app/api/x/route.ts', 'export async function GET(){}');
+    put(root, 'app/api/x/.route.json', JSON.stringify({ version: 1, route: '/api/x', methods: { GET: { exposure: 'authenticated' } } }));
+    const cli = path.join(__dirname, '..', 'bin', 'security-sidecar.js');
+    const run = (args) => new Promise((resolve) => { const c = require('child_process').spawn('node', [cli, ...args]); let out = ''; c.stdout.on('data', (d) => (out += d)); c.on('close', (code) => resolve({ code, out })); });
+    const gap = await run(['verify', root, '--base-url', `http://127.0.0.1:${server.address().port}`]);
+    assert.strictEqual(gap.code, 1);
+    assert.ok(/gap/.test(gap.out));
+    const remote = await run(['verify', root, '--base-url', 'https://example.com']);
+    assert.strictEqual(remote.code, 2);
+    assert.ok(/--allow-remote/.test(remote.out));
+  } finally { server.close(); }
+});
+
+test('routes registered in code are found in many languages, as "METHOD /path" entries', () => {
+  const { extractEndpoints, commonRoute, keyOf } = require('../src/endpoints');
+  const { analyzeSource } = require('../src/analyze');
+  const keys = (rel, src) => extractEndpoints(src, rel).map(keyOf);
+  assert.deepStrictEqual(keys('src/api.js', "const express = require('express'); r.get('/orders', h); r.post('/orders', h); axios.get('/api/x');"), ['GET /orders', 'POST /orders']);
+  assert.deepStrictEqual(keys('src/a.js', "axios.get('/api/x'); r.get('/y', h);"), [], 'no web framework in the file: not a router');
+  assert.deepStrictEqual(keys('src/cats.ts', "import { Controller } from '@nestjs/common'; @Controller('cats') class C { @Get() a(){} @Post(':id') b(){} }"), ['GET /cats', 'POST /cats/:id']);
+  assert.deepStrictEqual(keys('app/x.py', "from fastapi import APIRouter\nrouter = APIRouter(prefix='/api')\n@router.get('/items')\n@router.post('/items/{id}')\n"), ['GET /api/items', 'POST /api/items/{id}']);
+  assert.deepStrictEqual(keys('app/y.py', "from flask import Flask\n@app.route('/x', methods=['GET', 'POST'])\n@app.route('/y')\n"), ['GET /x', 'POST /x', 'GET /y']);
+  assert.deepStrictEqual(keys('cmd/s.go', 'import "github.com/go-chi/chi/v5"\nr.Get("/orders", h)\nhttp.HandleFunc("POST /ping", h)\nrouter.HandleFunc("/z", h).Methods("GET", "PUT")'), ['POST /ping', 'GET /orders', 'GET /z', 'PUT /z'].sort((a, b) => (a.split(' ')[1] < b.split(' ')[1] ? -1 : a.split(' ')[1] > b.split(' ')[1] ? 1 : 0)));
+  assert.deepStrictEqual(keys('src/O.java', '@RestController @RequestMapping("/api/orders") public class O { @GetMapping("/{id}") x(){} @PostMapping y(){} @RequestMapping(value="/q", method=RequestMethod.DELETE) z(){} }'), ['POST /api/orders', 'DELETE /api/orders/q', 'GET /api/orders/{id}']);
+  assert.deepStrictEqual(keys('src/R.java', '@Path("/res") public class R { @GET @Path("/a") a(){} @Path("/b") @POST b(){} }'), ['GET /res/a', 'POST /res/b']);
+  assert.deepStrictEqual(keys('src/K.kt', 'import io.ktor.server.routing.*\nrouting {\n  get("/ping") { }\n  post("/orders") { }\n}'), ['POST /orders', 'GET /ping']);
+  assert.deepStrictEqual(keys('Controllers/OrdersController.cs', '[ApiController][Route("api/[controller]")] public class OrdersController : ControllerBase { [HttpGet] a(){} [HttpGet("{id}")] b(){} [HttpPost] c(){} }'), ['GET /api/orders', 'POST /api/orders', 'GET /api/orders/{id}']);
+  assert.deepStrictEqual(keys('Program.cs', 'app.MapGet("/health", () => 1); app.MapPost("/x", () => 1);'), ['GET /health', 'POST /x']);
+  assert.deepStrictEqual(keys('config/routes.rb', 'Rails.application.routes.draw do\n  get "/ping", to: "a#b"\n  resources :orders, only: [:index, :show]\nend'), ['GET /orders', 'GET /orders/:id', 'GET /ping']);
+  assert.deepStrictEqual(keys('routes/api.php', '<?php Route::get("/users", f); Route::apiResource("posts", C::class); Route::match(["get", "post"], "/m", f);').filter((k) => /users|\/m$/.test(k)), ['GET /m', 'POST /m', 'GET /users']);
+  assert.ok(keys('routes/api.php', '<?php Route::apiResource("posts", C::class);').includes('DELETE /posts/:id'));
+  assert.deepStrictEqual(keys('src/s.rs', 'use actix_web::*; #[get("/a")] async fn a(){}\nuse axum::Router; let r = Router::new().route("/c", get(h).post(h2));'), ['GET /a', 'GET /c', 'POST /c']);
+  assert.deepStrictEqual(keys('lib/router.ex', 'use Phoenix.Router\nget "/", P, :index\npost "/login", S, :create'), ['GET /', 'POST /login']);
+  assert.deepStrictEqual(keys('Sources/routes.swift', 'import Vapor\nroutes.get("orders", ":id") { r in }\napp.post("todos") { r in }'), ['GET /orders/:id', 'POST /todos']);
+  assert.strictEqual(commonRoute(extractEndpoints('@RestController @RequestMapping("/api/orders") class O { @GetMapping("/{id}") a(){} @PostMapping b(){} }', 'O.java')), '/api/orders');
+
+  // analysis: one entry per endpoint, classified on its own path
+  const a = analyzeSource({ relPath: 'src/AdminController.java', source: '@RestController @RequestMapping("/api") class A { @GetMapping("/admin/users") a(){} @GetMapping("/health") b(){} @PostMapping("/orders") c(){} }' });
+  assert.deepStrictEqual(a.methods, ['GET /api/admin/users', 'GET /api/health', 'POST /api/orders']);
+  assert.strictEqual(a.isAdmin, true, 'one admin endpoint makes the file admin');
+  assert.strictEqual(a.policy.methods['GET /api/admin/users'].exposure, 'authenticated');
+  assert.strictEqual(a.policy.methods['POST /api/orders'].exposure, 'authenticated');
+  // file-based frameworks keep the original model
+  assert.deepStrictEqual(analyzeSource({ relPath: 'app/api/orders/route.ts', source: 'export async function GET(){}' }).methods, ['GET']);
+});
+
+test('code-registered routes are discovered by content, saved, checked and reported', () => {
+  const { report } = require('../src/report');
+  const root = tmp();
+  put(root, 'src/main/java/shop/OrdersController.java', '@RestController @RequestMapping("/api/orders") public class OrdersController {\n @PreAuthorize("isAuthenticated()") @GetMapping("/{id}") x(){}\n @PostMapping y(){} }');
+  put(root, 'cmd/server/handlers.go', 'package main\nimport "github.com/go-chi/chi/v5"\nfunc r(){ r.Get("/health", h); r.Get("/internal/jobs", j) }');
+  put(root, 'config/routes.rb', 'Rails.application.routes.draw do\n  get "/ping", to: "a#b"\nend');
+  put(root, 'routes/api.php', '<?php Route::middleware("auth")->group(function () { Route::get("/me", f); });');
+  put(root, 'src/helper.go', 'package main\nfunc add(a int) int { return a }');
+  put(root, 'src/client.js', "fetch('/api/x'); axios.get('/api/y');");
+  put(root, 'vendor/lib/routes.go', 'import "net/http"\nhttp.HandleFunc("/vendored", h)');
+  put(root, 'src/main/java/shop/OrdersControllerTest.java', '@RestController class T { @GetMapping("/t") a(){} }');
+  put(root, 'app/api/ok/route.ts', 'export async function GET(){}');
+
+  const config = R.loadConfig(root);
+  const is = (rel) => R.isRouteFile(rel, config);
+  assert.ok(is('src/main/java/shop/OrdersController.java') && is('cmd/server/handlers.go') && is('config/routes.rb') && is('routes/api.php'));
+  assert.ok(!is('src/helper.go') && !is('src/client.js') && !is('vendor/lib/routes.go') && !is('src/main/java/shop/OrdersControllerTest.java'));
+  assert.ok(!R.isRouteFile('cmd/server/handlers.go'), 'without a root only paths count');
+
+  const missing = check(root).findings.filter((f) => f.type === 'missing').map((f) => f.file).sort();
+  assert.deepStrictEqual(missing, ['app/api/ok/.route.json', 'cmd/server/handlers.route.json', 'config/routes.route.json', 'routes/api.route.json', 'src/main/java/shop/OrdersController.route.json']);
+
+  // save a multi-endpoint sidecar for the Java controller exactly as analyze suggests
+  const an = analyze('src/main/java/shop/OrdersController.java', { root });
+  assert.deepStrictEqual(an.methods, ['POST /api/orders', 'GET /api/orders/{id}']);
+  assert.strictEqual(an.hasAuthSignal, true, 'Spring @PreAuthorize is an auth signal');
+  const res = save(path.join(root, 'src/main/java/shop'), an.policy, { file: 'OrdersController.route.json' });
+  assert.strictEqual(res.code, 0, JSON.stringify(res));
+  const saved = JSON.parse(fs.readFileSync(path.join(root, 'src/main/java/shop/OrdersController.route.json'), 'utf8'));
+  assert.deepStrictEqual(Object.keys(saved.methods), ['POST /api/orders', 'GET /api/orders/{id}'].sort((x, y) => (x.split(' ')[1] < y.split(' ')[1] ? -1 : 1)));
+  assert.ok(!check(root).findings.some((f) => f.file.includes('OrdersController') && /^auth-/.test(f.type)), 'auth check found through @PreAuthorize');
+
+  const go = analyze('cmd/server/handlers.go', { root });
+  assert.deepStrictEqual(go.methods, ['GET /health', 'GET /internal/jobs']);
+  assert.strictEqual(go.policy.methods['GET /internal/jobs'].exposure, 'internal');
+  assert.strictEqual(save(path.join(root, 'cmd/server'), go.policy, { file: 'handlers.route.json' }).code, 0);
+
+  const rows = report(root).rows;
+  const row = (route, m) => rows.find((x) => x.route === route && x.method === m);
+  assert.strictEqual(row('/api/orders/{id}', 'GET').pathFrom, 'source');
+  assert.strictEqual(row('/api/orders/{id}', 'GET').authCheck, 'yes');
+  assert.strictEqual(row('/health', 'GET').exposure, 'public');
+  assert.deepStrictEqual(row('/internal/jobs', 'GET').gaps, ['protected-no-auth-check'], 'internal route without a recorded control');
+  assert.deepStrictEqual(row('/ping', 'GET').gaps, ['no-sidecar']);
+  assert.ok(rows.every((x) => x.route.startsWith('/') || x.exposure === '(invalid)'));
+});
+
+test('authPatterns in the config add project-specific auth signals', () => {
+  const { hasAuthSignal } = require('../src/analyze');
+  const root = tmp();
+  put(root, '.security-sidecar.config.json', JSON.stringify({ authPatterns: ['\\bcheckMyAcl\\(', '(', 5] }));
+  const config = R.loadConfig(root);
+  assert.strictEqual(config.authRegexes.length, 1, 'invalid and non-string patterns are ignored');
+  assert.strictEqual(hasAuthSignal('x = checkMyAcl(req)'), false);
+  assert.strictEqual(hasAuthSignal('x = checkMyAcl(req)', config.authRegexes), true);
+  put(root, 'app/api/a/route.ts', 'export async function GET(){ checkMyAcl(1); }');
+  put(root, 'app/api/a/.route.json', JSON.stringify({ version: 1, route: '/api/a', methods: { GET: { exposure: 'authenticated' } } }));
+  assert.ok(!check(root).findings.some((f) => f.type === 'auth-not-found'), 'the project pattern counts');
+});
+
+test('SvelteKit and Nuxt file routes, dynamic segments in more syntaxes', () => {
+  const { buildPath } = require('../src/verify');
+  assert.strictEqual(R.routeFromPath('src/routes/api/orders/+server.ts'), '/api/orders');
+  assert.ok(R.isRouteFile('src/routes/api/orders/+server.ts'));
+  assert.strictEqual(R.routeFromPath('server/api/orders.get.ts'), '/api/orders');
+  assert.deepStrictEqual(R.detectMethods('export default defineEventHandler(()=>1)', 'server/api/orders.get.ts'), ['GET']);
+  assert.strictEqual(R.routeFromPath('server/routes/health.ts'), '/health');
+  assert.deepStrictEqual(buildPath('/u/<int:id>/{name?}/:x', { id: 1, name: 'n', x: 'y' }), { path: '/u/1/n/y', missing: [] });
+});
+
+test('spec: compares an OpenAPI document with the recorded sidecars', () => {
+  const { compareSpec, format, protection, norm } = require('../src/spec');
+  const root = tmp();
+  const sc = (dir, route, methods) => {
+    put(root, `app${dir}/route.ts`, 'export async function GET(){}');
+    put(root, `app${dir}/.route.json`, JSON.stringify({ version: 1, route, methods }));
+  };
+  sc('/api/orders', '/api/orders', { GET: { exposure: 'authenticated' }, POST: { exposure: 'authenticated' } });
+  sc('/api/orders/[id]', '/api/orders/[id]', { GET: { exposure: 'public' } });
+  sc('/api/blog', '/api/blog', { GET: { exposure: 'authenticated' } });
+  sc('/api/health', '/api/health', { GET: { exposure: 'public' } });
+  sc('/api/legacy', '/api/legacy', { GET: { exposure: 'public' } });
+  sc('/api/todo', '/api/todo', { GET: { exposure: 'unclassified' } });
+  const spec = {
+    openapi: '3.0.0', servers: [{ url: 'https://api.example.com' }], security: [{ bearer: [] }],
+    paths: {
+      '/api/orders': { get: {}, post: {} },
+      '/api/orders/{id}': { get: {} },
+      '/api/blog': { get: { security: [] } },
+      '/api/health': { get: { security: [{}, { bearer: [] }] } },
+      '/api/reports': { get: {} },
+      '/api/todo': { get: {} },
+    },
+  };
+  put(root, 'openapi.json', JSON.stringify(spec));
+  const r = compareSpec(root, 'openapi.json');
+  const get = (route, m = 'GET') => r.rows.find((x) => x.route === route && x.method === m);
+  assert.strictEqual(get('/api/orders').result, 'match');
+  assert.strictEqual(get('/api/orders', 'POST').result, 'match');
+  assert.strictEqual(get('/api/orders/{id}').result, 'mismatch', '{id} matches [id]');
+  assert.ok(/recorded public, but the spec requires authentication/.test(get('/api/orders/{id}').note));
+  assert.strictEqual(get('/api/blog').result, 'mismatch', 'spec says no security, sidecar says authenticated');
+  assert.strictEqual(get('/api/health').result, 'match', 'optional authentication counts as public');
+  assert.strictEqual(get('/api/reports').result, 'not-recorded');
+  assert.strictEqual(get('/api/todo').result, 'unclassified');
+  assert.strictEqual(get('/api/legacy').result, 'not-in-spec');
+  assert.strictEqual(r.exitCode, 1);
+  assert.strictEqual(r.summary.mismatch, 2);
+  assert.ok(format(r).startsWith('ROUTE') && format(r, 'md').startsWith('# API spec comparison') && JSON.parse(format(r, 'json')).summary.match === 3);
+
+  // a server base path is tried with and without
+  put(root, 'openapi.json', JSON.stringify({ openapi: '3.0.0', servers: [{ url: '/api' }], paths: { '/health': { get: {} } } }));
+  assert.strictEqual(compareSpec(root, 'openapi.json').rows.find((x) => x.route === '/health').result, 'match');
+  assert.strictEqual(compareSpec(root, 'openapi.json', { prefix: '' }).rows.find((x) => x.route === '/health').result, 'not-recorded');
+  assert.throws(() => compareSpec(root, 'missing.yaml'), /YAML specs are not supported/);
+  put(root, 'bad.json', '{"a":1}');
+  assert.throws(() => compareSpec(root, 'bad.json'), /no "paths"/);
+  assert.strictEqual(protection({}, undefined), 'public');
+  assert.strictEqual(protection({}, [{ k: [] }]), 'protected');
+  assert.strictEqual(protection({ security: [] }, [{ k: [] }]), 'public');
+  assert.strictEqual(norm('/A/{id}/b/:x/[y]/<int:z>'), '/a/{}/b/{}/{}/{}');
 });

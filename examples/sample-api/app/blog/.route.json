@@ -1,0 +1,1 @@
+{"version":1,"mode":"annotate","route":"/blog","methods":{"GET":{"exposure":"public","indexing":"index"}},"reason":{"source":"heuristic","rule":"path-public-page"}}

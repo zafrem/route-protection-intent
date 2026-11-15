@@ -22,6 +22,7 @@ Examples of problems we want to hear about:
 - The `linkable` approval guard can be bypassed through the CLI alone, without `reason.source: user`.
 - The hook or CLI crashes in a way that blocks the agent or the CI run on crafted input.
 - Sidecars or `routes-manifest.json` are written somewhere they could be served publicly.
+- `verify` sends a request to a non-local host without `--allow-remote`, sends a method that changes data without `--include-mutating`, or sends cookies, tokens or a body.
 
 ## What is not a vulnerability
 

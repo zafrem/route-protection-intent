@@ -31,7 +31,7 @@ const AUTH_ENTRY = /(^|\/)(login|logout|signin|signup|register|auth|session|call
 const EXTERNAL_VIA = ['app-middleware', 'api-gateway', 'waf', 'ip-allowlist', 'mtls'];
 
 // Intent says "needs login" but the route code shows no sign of it, or a PR removed the sign.
-function checkAuthDrift(root, sidecarRel, doc, routeFiles = [], base) {
+function checkAuthDrift(root, sidecarRel, doc, routeFiles = [], base, authRegexes = []) {
   const out = [];
   const secured = Object.values(doc.methods || {}).some((m) => m.exposure === 'authenticated' || m.exposure === 'internal');
   if (!secured || !routeFiles.length) return out;
@@ -41,8 +41,8 @@ function checkAuthDrift(root, sidecarRel, doc, routeFiles = [], base) {
     let now = '';
     try { now = fs.readFileSync(path.join(root, rf), 'utf8'); } catch { continue; }
     const before = gitShow(root, base, rf);
-    const hadBefore = before != null && hasAuthSignal(before);
-    const hasNow = hasAuthSignal(now);
+    const hadBefore = before != null && hasAuthSignal(before, authRegexes);
+    const hasNow = hasAuthSignal(now, authRegexes);
     if (hadBefore && !hasNow) {
       out.push({ type: 'auth-removed', file: rf, line: firstChangedLine(root, base, rf), message: `an authentication check present at ${base} is gone from this route, but its sidecar (${sidecarRel}) says it must be protected. Restore it, or change the recorded intent on purpose` });
     } else if (!hasNow && !external && !AUTH_ENTRY.test(doc.route || '')) {
@@ -171,21 +171,21 @@ function check(root = process.cwd(), { strict = false, base } = {}) {
     const open = Object.entries(doc.methods).filter(([, p]) => p.exposure === 'unclassified').map(([m]) => m);
     if (open.length) findings.push({ type: 'unclassified', file: rel, message: `unclassified exposure for ${open.join(', ')}` });
     const via = (doc.enforcement && doc.enforcement.via) || [];
-    if ((R.isAdminRoute(doc.route, config.adminPaths) || Object.values(doc.methods).some((p) => p.exposure === 'internal'))
+    if ((R.docIsAdmin(doc, config.adminPaths) || Object.values(doc.methods).some((p) => p.exposure === 'internal'))
         && !via.some((v) => NETWORK_RESTRICTIONS.includes(v))) {
       findings.push({ type: 'admin-no-network-restriction', file: rel, message: `${doc.route} is admin/internal but enforcement.via lacks ${NETWORK_RESTRICTIONS.join(' or ')}; a hidden path or login alone is not a network restriction` });
     }
     if (doc.linkable === true && !(doc.reason && doc.reason.source === 'user')) {
       findings.push({ type: 'linkable-not-approved', file: rel, message: '"linkable": true is set but reason.source is not "user"; confirm with the user that this route may be linked' });
     }
-    if (R.isAdminRoute(doc.route, config.adminPaths) && !doc.gate) {
+    if (R.docIsAdmin(doc, config.adminPaths) && !doc.gate) {
       findings.push({ type: 'admin-no-gate', file: rel, message: `${doc.route} is an admin route with no extra gate recorded (passphrase of 8+ characters, SSO or MFA); a login alone is one factor` });
     }
     if (!expected.has(rel)) findings.push({ type: 'orphan', file: rel, message: 'no matching route source (deleted or renamed?)' });
     else {
       const rfs = routeFilesBySidecar.get(rel);
       findings.push(...checkIntentCodeDrift(root, rel, doc, rfs));
-      findings.push(...checkAuthDrift(root, rel, doc, rfs, base));
+      findings.push(...checkAuthDrift(root, rel, doc, rfs, base, config.authRegexes));
     }
     const old = gitShow(root, base, rel);
     if (old) { try { findings.push(...diffSidecar(JSON.parse(old), doc, rel)); } catch { /* ignore invalid base json */ } }
@@ -231,4 +231,4 @@ function formatGithub(r) {
   return r.findings.map((f) => `::${ERROR_TYPES.has(f.type) ? 'error' : 'warning'} ${f.file ? `file=${(r.pathPrefix || '') + f.file}${f.line ? `,line=${f.line}` : ''},` : ''}title=${f.type}::${esc(f.message + (f.note ? ` Note recorded for this route: ${f.note}` : ''))}`).join('\n');
 }
 
-module.exports = { check, format, formatGithub, diffSidecar };
+module.exports = { check, format, formatGithub, diffSidecar, AUTH_ENTRY, EXTERNAL_VIA };

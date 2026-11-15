@@ -66,6 +66,7 @@ footer{margin-top:48px;color:var(--muted);font-size:.9rem}
 <div class="grid">
   <div class="card"><h3>Catches drift</h3><p>Intent says protected, code shows no authentication check, or a pull request removed the one that was there.</p></div>
   <div class="card"><h3>Catches downgrades</h3><p>Flags a pull request that lowers exposure, or removes a gate, rate limit or network restriction from a sidecar.</p></div>
+  <div class="card"><h3>Verifies the running app</h3><p>Sends credential-free requests to a local or staging app. A protected route that answers 200 is reported as a gap. Safe methods only by default.</p></div>
   <div class="card"><h3>Guards admin pages</h3><p>An extra gate (SSO, MFA or a passphrase of 8+ characters), a network restriction, and no links or sitemap entries unless you approve.</p></div>
 </div>
 
@@ -75,6 +76,19 @@ footer{margin-top:48px;color:var(--muted);font-size:.9rem}
 check present at origin/main is gone from this route, but its sidecar
 says it must be protected. Restore it, or change the recorded intent</code></pre>
 <p style="color:var(--muted);font-size:.9rem">The finding shows up as an annotation on the pull request and fails the job. Detection is text matching for common patterns, so expect misses.</p>
+
+<h2>A sample report</h2>
+<pre><code>$ security-sidecar report examples/sample-api
+ROUTE         METHOD  EXPOSURE       GATE  VIA  DECIDED BY  AUTH CHECK  GAPS
+/admin/users  GET     authenticated  -     -    user        yes         -
+/api/exports  GET     authenticated  -     -    heuristic   no          protected-no-auth-check
+/api/health   GET     public         -     -    user        no          -
+/api/orders   GET     authenticated  -     -    user        yes         -
+/api/orders   POST    authenticated  -     -    user        yes         -
+/blog         GET     public         -     -    heuristic   no          -
+
+5 route(s), 6 entries: 2 public, 4 authenticated, 0 internal, 0 without a recorded decision; 4 confirmed by a person; 1 with gaps</code></pre>
+<p style="color:var(--muted);font-size:.9rem">Generated from the <code>examples/sample-api</code> folder in the repository. <code>/api/exports</code> is recorded as protected, but no authentication check is visible in its code, so it is listed as a gap.</p>
 
 <h2>A sidecar</h2>
 <pre><code>app/api/orders/.route.json
@@ -114,9 +128,11 @@ says it must be protected. Restore it, or change the recorded intent</code></pre
 
 <h2>Good to know</h2>
 <ul>
-  <li>Enforcement output supports Nginx, Next.js and Cloudflare. Next.js is the tested framework; Express, FastAPI, Go and Java routes are detected by file path.</li>
+  <li>Enforcement output supports Nginx, Next.js and Cloudflare. Next.js is the only framework tested end to end. Routes are also read for JS/TS, Python, Go, Java/Kotlin, C#, Ruby, PHP, Rust, Elixir, Swift and Dart, but those patterns were checked on small snippets, not real projects, and router mount prefixes are not resolved.</li>
+  <li><code>security-sidecar spec openapi.json</code> compares an OpenAPI (JSON) document with the recorded protection and lists disagreements.</li>
   <li>Authentication detection and the link scan are text matching, so expect misses and some false positives. If a check lives in middleware or a gateway, record it in <code>enforcement.via</code>.</li>
   <li><code>reason.source: user</code> is a convention an agent could forge, so review sidecar changes in pull requests.</li>
+  <li>This is one layer, not a security architecture. See the <a href="https://github.com/zafrem/security-sidecar/blob/main/docs/SECURITY-ARCHITECTURE.md">architecture guide</a> for what has to exist underneath: central authentication, per-record authorization, a separate admin plane and a test that fails when protection is removed.</li>
   <li>For secure-coding rules and linting, rely on <code>/security-review</code> and tools like Semgrep or ESLint security rules.</li>
 </ul>
 

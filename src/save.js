@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { validate } = require('./validate');
 const { findSecrets } = require('./secrets');
+const { parseKey } = require('./endpoints');
 
 const KEY_ORDER = ['version', 'mode', 'route', 'methods', 'enforcement', 'gate', 'linkable', 'reason', 'notes'];
 const POLICY_ORDER = ['exposure', 'cache', 'indexing', 'rateLimit', 'note'];
@@ -14,8 +15,9 @@ const pick = (o, order) => Object.fromEntries(order.filter((k) => k in o).map((k
 // Stable key order so diffs stay small (NFR-5).
 function canonical(doc) {
   const out = pick(doc, KEY_ORDER);
+  const rank = (k) => { const e = parseKey(k); return [METHOD_ORDER.indexOf(e.method), e.path || '']; };
   out.methods = Object.fromEntries(
-    Object.keys(doc.methods).sort((a, b) => METHOD_ORDER.indexOf(a) - METHOD_ORDER.indexOf(b))
+    Object.keys(doc.methods).sort((a, b) => { const x = rank(a); const y = rank(b); return x[1] < y[1] ? -1 : x[1] > y[1] ? 1 : x[0] - y[0]; })
       .map((m) => [m, pick(doc.methods[m], POLICY_ORDER)]),
   );
   return out;

@@ -45,18 +45,22 @@ All logic lives in one dependency-free Node CLI plus one JSON schema. The Claude
 | Module | Responsibility |
 | --- | --- |
 | `routes.js` | Which files are routes (globs), the URL a file serves, HTTP methods in source, sidecar file naming, directory walk, `adminPaths` matching, config loading |
+| `endpoints.js` | Per-language extractors (JS/TS, Python, Go, JVM, C#, Ruby, PHP, Rust, Elixir, Swift, Dart) that read route strings from code behind a framework marker; `METHOD /path` key helpers |
+| `spec.js` | Compares an OpenAPI JSON document with the recorded sidecars (path-parameter normalization, `servers` prefix) |
 | `analyze.js` | Classification: exposure, cache, indexing, confidence, options, `needsGate`, `existing` sidecar info |
 | `guidance.js` | Framework-specific implementation text for each exposure, (text only) |
 | `validate.js` | Minimal JSON Schema validator for the subset the schema uses |
 | `secrets.js` | Secret-pattern detection for every string value and key |
 | `save.js` | Merge with existing sidecar, validate, secret scan, canonical key order, write |
 | `check.js` | Repo-wide findings and exit code |
+| `verify.js` | Live probe: sends credential-free requests to a running app (safe methods by default, local targets unless `--allow-remote`) and compares each status with the recorded intent |
+| `report.js` | Route inventory: one row per route and method (recorded exposure, gate, `enforcement.via`, who decided it, whether the code shows an auth check) with gaps; table, Markdown, JSON or CSV |
 | `links.js` | Finds references to protected routes in other files |
 | `compile.js` | Collects `mode: enforce` sidecars into the manifest and calls a target |
 | `targets/nginx.js` | Renders the Nginx config |
 | `targets/nextjs.js` | Renders Next.js `headers()` and `routePolicies` module |
 | `targets/cloudflare.js` | Renders Cloudflare `_headers` and WAF rule expressions |
-| `cli.js` | Argument parsing and JSON output for the four subcommands |
+| `cli.js` | Argument parsing and JSON output for the subcommands |
 
 ## 4. Data model
 
@@ -85,6 +89,22 @@ A sidecar describes one route, per HTTP method. Exposure, caching and enforcemen
 3. Refuse `linkable: true` without `reason.source: user` (unless already set).
 4. Validate against the schema, then scan every string for secrets. Any failure exits 2 and writes nothing.
 5. Write with canonical key order. Identical content is not rewritten, so diffs stay small.
+
+### 5.2a report
+
+`report.js` walks the repo once and builds one row per route and method: the recorded exposure, gate, `enforcement.via`, `reason.source` (who decided), and whether any route file shows an authentication check (`hasAuthSignal`; per file, so every method of a route shares the value). Routes with no sidecar, orphan sidecars and invalid sidecars get rows too. Gaps: `no-sidecar`, `orphan`, `schema`, `unclassified`, `protected-no-auth-check` (same exemptions as `auth-not-found`) and `public-with-auth-check`. Rows are sorted by route and method and carry no timestamps, so the output can be committed and diffed. Exit code is 0 unless `--strict` is given and there are gaps. It is static: it never contacts a running app.
+
+### 5.2c Route detection models
+
+Legacy files (Next.js, SvelteKit, Nuxt, and `routes/`, `routers/`, `urls.py` in JS/TS, Python, Go, Java) take their URL from the file path (`isLegacy`). Any other source file is sniffed (up to 512 KB, outside vendor and build directories): it is a route file only if `endpoints.js` finds a framework marker and at least one endpoint. Endpoint files get one sidecar whose method keys are `METHOD /path`; the sidecar `route` is the common prefix. Authentication is judged per file with the built-in `AUTH_SIGNALS` list plus the project's `authPatterns`.
+
+### 5.2d spec
+
+`spec.js` reads an OpenAPI JSON file, takes each operation's effective `security` (operation overrides root; none or an empty alternative means public) and matches it with the report rows by method and normalized path (`{id}`, `:id`, `[id]`, `<id>` all become one placeholder; the first `servers` path is tried as a prefix). Output: `match`, `mismatch`, `not-recorded`, `unclassified`, `not-in-spec`. Exit 1 on a mismatch, or with `--strict` on any unrecorded or unclassified route.
+
+### 5.2b verify
+
+`verify.js` takes the rows from `report` for routes recorded as `public`, `authenticated` or `internal`, fills dynamic segments from `verify.samples`, and sends one request per route and method with `fetch`, no credentials and `redirect: 'manual'`. Judgement: for protected routes 401/403 and a redirect elsewhere pass, 2xx is a `gap`, and 404/405/400/422/5xx or a network error is `inconclusive`; for public routes 2xx passes and 401/403 is a `gap`. Guards: only `GET`/`HEAD`/`OPTIONS` unless `--include-mutating`; non-loopback hosts need `--allow-remote`; a timeout per request and an optional delay. It is the only part of the tool that makes network requests, and it never sends cookies, tokens or a body. Because the CLI entry waits on a promise, `verify` is the one async command.
 
 ### 5.3 check
 
@@ -146,11 +166,13 @@ Plugin installs copy only `plugins/security-sidecar/`, so the CLI is bundled ins
 | A schema field | `schema/route.schema.json`, `save.js` (`KEY_ORDER`, merge), docs |
 | A compile target | New file in `src/targets/` exporting `accepts`, `outFile`, `render`; register in `compile.js` |
 | Another agent (Codex, agy) | A new adapter that calls the same CLI; no core change (SRS 6.3) |
-| More auth patterns | `AUTH_SIGNAL_RE` in `analyze.js` |
+| More auth patterns | `AUTH_SIGNALS` in `analyze.js`, or `authPatterns` in the project config |
+| Another language or framework | a dialect in `DIALECTS` in `endpoints.js` (extension, marker, extractor) |
 
 ## 9. Known limitations
 
-- Only file-based routes are detected. Routes registered in code (Express `app.use`, Flask, Django) are not.
+- Routes registered in code are read by per-language patterns that were tested only on small snippets. Router mount prefixes and nested groups are not resolved, so paths are as written in the source.
+- Specs: JSON only, no YAML; the spec is compared as a document.
 - Compile targets (Nginx, Next.js, Cloudflare) are optional output only; none verifies that the config is deployed.
 - No verification that the recorded enforcement exists.
 - Link detection is text matching; paths built at runtime are missed.

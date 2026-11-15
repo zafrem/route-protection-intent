@@ -1,0 +1,1 @@
+{"version":1,"mode":"annotate","route":"/api/orders","methods":{"GET":{"exposure":"authenticated","cache":{"policy":"no-store"},"indexing":"noindex"},"POST":{"exposure":"authenticated","cache":{"policy":"no-store"},"indexing":"noindex","note":"creates an order, needs a session"}},"reason":{"source":"user"}}

@@ -17,11 +17,13 @@ Practical steps for using security-sidecar. For how it works inside see [ARCHITE
      "adminPaths": ["/ops-k7Qx92mVbT4nLw", "/backoffice-*"],
      "include": ["**/handlers/**"],
      "exclude": ["**/legacy/**"],
-     "quiet": false
+     "quiet": false,
+     "authPatterns": ["requireTenantUser\\("]
    }
    ```
    - `adminPaths`: route prefixes treated like `/admin` (`*` matches within one segment).
    - `include` / `exclude`: extra or removed route-file globs.
+   - `authPatterns`: extra regular expressions (strings, up to 200 characters) that count as an authentication check, for helpers the built-in list does not know.
    - `quiet`: `true` stops Claude mentioning successful sidecar saves. Questions, refusals, findings and security warnings still appear.
 3. Commit the `.route.json` files with the code. Never put them in `public/` or `static/`.
 
@@ -79,6 +81,54 @@ Practical steps for using security-sidecar. For how it works inside see [ARCHITE
 3. Run `/security-sidecar:compile <nginx|nextjs|cloudflare>`. Review the generated config (`security-sidecar.nginx.conf`, `security-sidecar.nextjs.js`, or `security-sidecar._headers`) before use; where methods differ, the strictest applies to the path.
 4. Add `routes-manifest.json` and the generated config to `.gitignore` and to your deploy exclusions. The manifest lists admin paths.
 
+## 4a. Audit: the route inventory
+
+`/security-sidecar:report` (or `security-sidecar report .`) lists every route and method with its recorded protection:
+
+```
+ROUTE       METHOD  EXPOSURE       GATE  VIA  DECIDED BY  AUTH CHECK  GAPS
+/api/login  POST    authenticated  -     -    heuristic   no          -
+/products   GET     public         -     -    heuristic   no          -
+/reports    GET     (none)         -     -    -           n/a         no-sidecar
+```
+
+- **Decided by:** `user` means a person confirmed it. `heuristic` or `agent` means it was only guessed, so review those first.
+- **Auth check:** whether the route code shows an authentication check (a text match for common patterns). It is not proof, and it is the same for every method of a route.
+- **Gaps:** `no-sidecar`, `unclassified`, `orphan`, `schema`, `protected-no-auth-check` (recorded as protected, no check visible) and `public-with-auth-check` (recorded as public, but the code checks authentication: is it really public?).
+- **Audit trail:** commit the output (`security-sidecar report . --format md > docs/route-inventory.md`). Rows are sorted and have no timestamps, so a pull request's diff shows exactly which route changed exposure.
+- **Formats:** `--format table|md|json|csv`. `--strict` exits 1 when any gap exists.
+- **Limit:** this is static. It does not contact the running app. To test that a protected route really refuses anonymous callers, use `verify` (next section).
+
+## 4b. Verify a running app
+
+`/security-sidecar:verify --base-url http://localhost:3000` (or `security-sidecar verify . --base-url ...`) sends requests without credentials and compares the answers with the recorded intent.
+
+1. Start the app locally or use a staging environment you own. Non-local addresses are refused unless you pass `--allow-remote`.
+2. Run it. Read the RESULT column: `pass` (as recorded), `gap` (an anonymous request was treated differently than recorded, most importantly a protected route answering 2xx), `inconclusive` (404, 5xx or no response: fix the URL or the server and run again) and `skipped`.
+3. Routes with parameters need sample values in `.security-sidecar.config.json`: `{ "verify": { "samples": { "id": "42" } } }`. Use values that exist in the test data, otherwise you get 404s.
+4. Only GET, HEAD and OPTIONS are sent. `--include-mutating` also sends POST, PUT, PATCH and DELETE with no body; use it only on a test system, because a route that is wrongly open could act on the request.
+5. No cookies or tokens are ever sent. A protected route that answers 400 or 422 is `inconclusive`: it was rejected before any authentication decision, which is itself worth checking.
+6. `--strict` fails on `inconclusive` as well; `--format md|json|csv` and `--delay <ms>` are available. In CI, start the app, run `verify` against it, and keep it separate from the pull-request check.
+7. It proves that anonymous callers are refused. It does not prove that user A cannot read user B's data; test that with accounts in your own test suite.
+
+## 4c. Compare with an OpenAPI spec
+
+`/security-sidecar:spec openapi.json` (or `security-sidecar spec openapi.json .`) compares each operation's `security` with the sidecars.
+
+1. Export your spec as JSON (YAML is not read).
+2. Run it. Rows: `match`, `mismatch` (the two disagree on whether authentication is required), `not-recorded`, `unclassified`, `not-in-spec`. An operation with `security: []` or an empty alternative `{}` counts as public.
+3. Decide for each mismatch which side is wrong and fix it: the spec is often the incomplete one.
+4. `--prefix /api` sets the base path when `servers` does not give it. `--strict` also fails on unrecorded and unclassified routes. Exit 1 on a mismatch.
+5. It reads documents only. It does not prove the running app behaves that way; use `verify` for that.
+
+## 4d. Languages and frameworks
+
+Next.js, SvelteKit and Nuxt are found by file path. For Express, NestJS, Flask, FastAPI, Django, Go routers, Spring, JAX-RS, Ktor, ASP.NET, Rails, Laravel, Symfony, Phoenix, Vapor, actix, axum, Rocket and shelf_router the tool reads the route strings in the code, and one sidecar lists many endpoints under keys like `"GET /api/orders"`. Notes:
+
+- Only Next.js is tested end to end; the rest were checked against small snippets. Treat results as a starting point and review the `report`.
+- Paths are taken as written. A router mount prefix is not known, so `verify` may report `inconclusive` for those.
+- When routing and authentication are in different files (Rails, Django, Phoenix), record `enforcement.via` so `auth-not-found` does not fire, or add your helper to `authPatterns`.
+
 ## 4. Checking and CI
 
 Exit codes for `check`: **0** in annotate mode (warnings only), **1** with `--strict` or for violations in `enforce` sidecars.
@@ -129,6 +179,7 @@ so each finding shows as an annotation on the changed file (`auth-removed` and `
 
 ## 6. Rules of thumb
 
+- The sidecar is one layer. For the architecture that makes the recorded intent hold (central authentication, object-level authorization, separate admin plane, a test that fails when protection is removed), read [SECURITY-ARCHITECTURE.md](SECURITY-ARCHITECTURE.md).
 - When unsure, secure it. Wrongly public costs more than wrongly secured.
 - Hide admin URLs for noise reduction only. The real controls are the network restriction, the gate and server-side role checks.
 - Never put passwords, keys, tokens or connection strings in a sidecar, including `notes`. `save` will refuse them.

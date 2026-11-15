@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const R = require('./routes');
+const { parseKey } = require('./endpoints');
 
 const SCAN_EXT = /\.(?:[cm]?[jt]sx?|py|html?|mdx?|vue|svelte|txt|xml)$/i;
 // Config files legitimately mention the path (rewrites, matchers); tests are not shipped.
@@ -12,15 +13,21 @@ function protectedRoutes(docs, adminPaths) {
   const out = [];
   for (const [sidecar, doc] of docs) {
     if (doc.linkable === true) continue;
-    const internal = Object.values(doc.methods).some((p) => p.exposure === 'internal');
-    if (!(R.isAdminRoute(doc.route, adminPaths) || doc.gate || internal)) continue;
-    const prefix = '/' + doc.route.split('/').filter(Boolean).filter((_, i, a) => a.slice(0, i + 1).every((s) => !s.startsWith('['))).join('/');
-    if (prefix === '/') continue;
-    const esc = prefix.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
-    out.push({
-      sidecar, route: doc.route, prefix,
-      re: new RegExp(`(?<![\\w-])${esc}(?![\\w-])|https?://[^\\s"'\`/]+${esc}(?![\\w-])`, 'i'),
-    });
+    // A sidecar may list endpoints as "METHOD /path"; each is checked on its own path.
+    const entries = Object.entries(doc.methods).map(([k, p]) => ({ path: parseKey(k).path, internal: p.exposure === 'internal' }));
+    const candidates = [];
+    if (entries.some((e) => !e.path) || entries.length === 0) candidates.push({ route: doc.route, internal: entries.some((e) => !e.path && e.internal) });
+    for (const e of entries) if (e.path) candidates.push({ route: e.path, internal: e.internal });
+    for (const c of candidates) {
+      if (!(R.isAdminRoute(c.route, adminPaths) || doc.gate || c.internal)) continue;
+      const prefix = '/' + c.route.split('/').filter(Boolean).filter((_, i, a) => a.slice(0, i + 1).every((s) => !/^[[:{<]/.test(s))).join('/');
+      if (prefix === '/') continue;
+      const esc = prefix.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
+      out.push({
+        sidecar, route: c.route, prefix,
+        re: new RegExp(`(?<![\\w-])${esc}(?![\\w-])|https?://[^\\s"'\`/]+${esc}(?![\\w-])`, 'i'),
+      });
+    }
   }
   return out;
 }

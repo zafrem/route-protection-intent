@@ -198,6 +198,11 @@ The must-have features of v1 (P0) are detection, classification suggestions, que
 | FR-5.1e | `save` refuses `linkable: true` unless the policy carries `reason.source: user` (or the sidecar was already linkable), and `check` warns (`linkable-not-approved`) when `linkable: true` is present without `reason.source: user`. The skill must ask the user before setting it, even when the user's own request mentioned the link. | P0 |
 | FR-5.1g | Warn (`auth-not-found`) when a sidecar has an `authenticated` or `internal` method but no authentication signal is found in the route source, unless `enforcement.via` names an external control (`app-middleware`, `api-gateway`, `waf`, `ip-allowlist`, `mtls`). | P0 |
 | FR-5.1h | With `--base <git-ref>`, report `auth-removed` when an authentication signal present in the route source at that ref is gone and the sidecar still says the route is protected. | P0 |
+| FR-5.5 | `report` lists one row per route and method with the recorded exposure, gate, `enforcement.via`, `reason.source` and whether an authentication check is visible in the route code, and flags gaps (`no-sidecar`, `orphan`, `schema`, `unclassified`, `protected-no-auth-check`, `public-with-auth-check`). Output is sorted and has no timestamps, in table, Markdown, JSON or CSV. Exit 0, or 1 with `--strict` when gaps exist. It is static and never contacts a running app. | P1 |
+| FR-1.4 | Files that are not found by path are route files when they contain a framework marker and at least one literal route (JS/TS, Python, Go, Java/Kotlin, C#, Ruby, PHP, Rust, Elixir, Swift, Dart). Their sidecar lists endpoints under `METHOD /path` method keys. Vendor and build directories are skipped. | P1 |
+| FR-1.5 | `authPatterns` in `.security-sidecar.config.json` adds regular expressions that count as an authentication check (invalid or over-long ones are ignored). | P1 |
+| FR-5.7 | `spec <openapi.json>` compares each operation's effective `security` with the recorded exposure and reports `match`, `mismatch`, `not-recorded`, `unclassified` and `not-in-spec`, with table, Markdown, JSON or CSV output. JSON only. Exit 1 on a mismatch, or with `--strict` on unrecorded or unclassified routes. Documents only; it never contacts a running app. | P1 |
+| FR-5.6 | `verify --base-url <url>` sends requests without credentials to a running app and compares each answer with the recorded exposure: a protected route answering 2xx, or a public route answering 401/403, is a `gap`; 404, 5xx, other client errors and no response are `inconclusive` and never a pass. Only `GET`/`HEAD`/`OPTIONS` are sent unless `--include-mutating`; non-loopback targets need `--allow-remote`; no cookies, tokens or bodies are sent. Dynamic routes use `verify.samples`. Exit 1 on a gap (and on `inconclusive` with `--strict`). | P1 |
 | FR-5.1j | If `--base` is given but the ref is invalid or cannot be resolved, `check` reports `base-unresolved` and exits 1 even in annotate mode. It never skips the comparison silently. A ref starting with `-` is rejected. | P0 |
 | FR-5.1i | `check --format github` prints a `::error` (`auth-removed`, `policy-downgrade`) or `::warning` annotation per finding so a pull request shows them on the changed files. | P1 |
 | FR-5.3 | Print both a human-readable summary and machine-readable JSON (`--json`). | P1 |
@@ -262,7 +267,7 @@ The tool must stay out of the developer's way, never write secrets, and never cl
 | ID | Requirement |
 | --- | --- |
 | NFR-1 | Clear cases (for example creating `/api/login`) are saved without asking. Only ambiguous cases interrupt the developer. |
-| NFR-2 | No external services or paid monitoring. The tool runs on the local file system and a standard JSON parser only. |
+| NFR-2 | No external services or paid monitoring, and no telemetry. The tool runs on the local file system and a standard JSON parser. The one exception is the explicit `verify` command, which sends credential-free requests only to the `--base-url` the user gives (loopback unless `--allow-remote`); no hook, `check`, `report` or `analyze` ever makes a network request. |
 | NFR-3 | Secret-like values (keys, tokens, connection strings) are rejected before any write. |
 | NFR-4 | `analyze` on a single file finishes fast enough that the hook does not noticeably delay the agent (target: under 1 second). |
 | NFR-5 | Output is deterministic. The same input gives the same sidecar, with stable key order, so diffs stay small. |
@@ -286,13 +291,14 @@ Decided for the first implementation:
 
 1. **v1 target: Nginx.** Next.js middleware moves to P2.
 2. **CLI language: Node (18+), no dependencies.** The `route.schema.json` rules are checked by a small built-in validator.
-3. **Second framework: Express and FastAPI are both detected by file path (`routes/`, `routers/`) and method patterns** (`router.get(`, `@router.get(`). Only the Next.js example is tested; neither has an example yet.
+3. **Second framework: Express and FastAPI are both detected by file path (`routes/`, `routers/`) and method patterns** (`router.get(`, `@router.get(`). Only the Next.js example is tested; neither has an example yet. Later extended with content-based detection for many languages (FR-1.4).
 4. **Multi-route directories use `<name>.route.json`** (see 3.3). In Next.js, `page.tsx` is treated as a route and shares the directory's `.route.json` with `route.ts`.
 5. **When a directory's methods differ, Nginx output applies the strictest policy** to the path, because Nginx locations are per path.
 
 Still open:
 
-1. How `analyze` finds routes registered in code (Express, FastAPI, Flask, Django) rather than by file path or method pattern.
+1. Resolving router mount prefixes and nested groups for routes registered in code (paths are currently taken as written), and validating the per-language patterns on real projects.
+1a. YAML OpenAPI support (currently JSON only).
 2. Whether Codex and agy offer hooks equivalent to PostToolUse.
 3. Whether the README subtitle may mention Claude, given Anthropic's trademark guidance.
 4. Whether `.route.json` should instead be one file per directory with a `routes` array, to match the original wording of 3.3.
