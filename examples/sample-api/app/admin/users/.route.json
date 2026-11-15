@@ -1,1 +1,0 @@
-{"version":1,"mode":"annotate","route":"/admin/users","methods":{"GET":{"exposure":"authenticated","cache":{"policy":"no-store"},"indexing":"noindex"}},"reason":{"source":"user"}}

@@ -74,26 +74,20 @@ The output is sorted and has no timestamps, so you can commit it (`--format md >
 Generated from [`examples/sample-api`](examples/sample-api) (a small app with five routes): `security-sidecar report examples/sample-api`.
 
 ```
-ROUTE         METHOD  EXPOSURE       GATE  VIA  DECIDED BY  AUTH CHECK  GAPS
-/admin/users  GET     authenticated  -     -    user        yes         -
-/api/exports  GET     authenticated  -     -    heuristic   no          protected-no-auth-check
-/api/health   GET     public         -     -    user        no          -
-/api/orders   GET     authenticated  -     -    user        yes         -
-/api/orders   POST    authenticated  -     -    user        yes         -
-/blog         GET     public         -     -    heuristic   no          -
+ROUTE              METHOD  EXPOSURE       GATE  VIA  DECIDED BY  AUTH CHECK  GAPS
+/account/settings  GET     authenticated  -     -    user        yes         -
+/api/exports       GET     authenticated  -     -    heuristic   no          protected-no-auth-check
+/api/health        GET     public         -     -    user        no          -
+/api/orders        GET     authenticated  -     -    user        yes         -
+/api/orders        POST    authenticated  -     -    user        yes         -
+/blog              GET     public         -     -    heuristic   no          -
 
 5 route(s), 6 entries: 2 public, 4 authenticated, 0 internal, 0 without a recorded decision; 4 confirmed by a person; 1 with gaps
 ```
 
-Read it like this: `/api/exports` is recorded as `authenticated` (guessed by the tool, not confirmed by a person) but its code shows no authentication check, so it is listed as a gap. `check` on the same app adds two warnings for `/admin/users`: no extra gate and no network restriction recorded.
+Read it like this: `/api/exports` is recorded as `authenticated` (guessed by the tool, not confirmed by a person) but its code shows no authentication check, so it is listed as a gap and `check` reports `auth-not-found` for it.
 
-```
-  [admin-no-gate] app/admin/users/.route.json: /admin/users is an admin route with no extra gate recorded (passphrase of 8+ characters, SSO or MFA); a login alone is one factor
-  [admin-no-network-restriction] app/admin/users/.route.json: /admin/users is admin/internal but enforcement.via lacks ip-allowlist or mtls; a hidden path or login alone is not a network restriction
-  [auth-not-found] app/api/exports/route.ts: sidecar app/api/exports/.route.json says this route is protected, but no authentication check was found in the route code. If it is enforced elsewhere (middleware, gateway), record that...
-```
-
-The committed version, in Markdown, is [`examples/sample-api/route-inventory.md`](examples/sample-api/route-inventory.md).
+Add `--format md` to get a Markdown version you can commit. (Keep a committed inventory out of folders the link scan covers if it lists admin routes: `check` flags a file that mentions an admin route.)
 
 ## Verify a running app
 
@@ -137,7 +131,22 @@ Authentication patterns are known for each ecosystem; add your own regular expre
 
 ## Use it on pull requests
 
-Copy [`examples/github-action/security-sidecar.yml`](examples/github-action/security-sidecar.yml) into `.github/workflows/`. It runs `check --base origin/<target branch> --format github --strict`, so findings appear as annotations on the changed files and the job fails. The workflow clones this repo at the release in `SECURITY_SIDECAR_REF` (`v0.1.0`), so it works in any project. Move it to a newer tag on purpose. A tag can in principle be moved by the repo owner, so pin a full commit hash if you want the strictest setting. It was verified by running its steps against a separate test repository, not yet on a live pull request in another repo.
+Use the action (pin a release tag; Node is preinstalled on GitHub-hosted runners):
+
+```yaml
+on: pull_request
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 0 }
+      - uses: zafrem/security-sidecar@v0.1.0
+```
+
+Inputs: `path` (default `.`), `base` (default `origin/<target branch>`), `strict` (default `true`). The action only exists from the release that contains `action.yml`, so until the next tag is cut, use the copyable workflow below.
+
+Or copy [`examples/github-action/security-sidecar.yml`](examples/github-action/security-sidecar.yml) into `.github/workflows/`. It runs `check --base origin/<target branch> --format github --strict`, so findings appear as annotations on the changed files and the job fails. The workflow clones this repo at the release in `SECURITY_SIDECAR_REF` (`v0.1.0`), so it works in any project. Move it to a newer tag on purpose. A tag can in principle be moved by the repo owner, so pin a full commit hash if you want the strictest setting. It was verified by running its steps against a separate test repository, not yet on a live pull request in another repo.
 
 `--base` needs full git history (`fetch-depth: 0`). If the ref cannot be used, `check` reports `base-unresolved` and fails instead of passing without a comparison.
 

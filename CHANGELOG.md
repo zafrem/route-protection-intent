@@ -10,6 +10,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). The plugin name 
 
 - Many more languages: routes registered in code are now read for JS/TS (Express-style, NestJS), Python (Flask, FastAPI, Django), Go, Java/Kotlin (Spring, JAX-RS, Ktor), C#, Ruby, PHP, Rust, Elixir, Swift and Dart, plus SvelteKit and Nuxt file routes. A sidecar can list many endpoints with `METHOD /path` keys. A broader authentication-pattern list, and `authPatterns` in the config for your own. Tested on small snippets only, not real projects; router mount prefixes are not resolved.
 - `spec`: compares an OpenAPI JSON document with the recorded sidecars (`mismatch`, `not-recorded`, `unclassified`, `not-in-spec`). New `/security-sidecar:spec` command. YAML is not read.
+- `action.yml`: a composite GitHub Action (`uses: zafrem/security-sidecar@<tag>`) that runs `check` on a pull request. Available from the next tag; not yet listed on the GitHub Marketplace.
 - `examples/sample-api` and a sample report in the README and the site.
 
 ## [0.1.0] - 2026-11-15

@@ -1,0 +1,39 @@
+name: 'security-sidecar check'
+description: 'Warn on a pull request when a route no longer matches its recorded protection intent, for example a removed authentication check.'
+author: 'zafrem'
+branding:
+  icon: 'shield'
+  color: 'gray-dark'
+
+inputs:
+  path:
+    description: 'Folder to check, relative to the repository root.'
+    required: false
+    default: '.'
+  base:
+    description: 'Git ref to compare against. Defaults to origin/<the pull request target branch>. The checkout needs fetch-depth: 0.'
+    required: false
+    default: ''
+  strict:
+    description: 'Fail the job on any finding (true or false).'
+    required: false
+    default: 'true'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Run security-sidecar check
+      shell: bash
+      env:
+        INPUT_PATH: ${{ inputs.path }}
+        INPUT_BASE: ${{ inputs.base }}
+        INPUT_STRICT: ${{ inputs.strict }}
+        BASE_REF: ${{ github.base_ref }}
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        base="$INPUT_BASE"
+        if [ -z "$base" ] && [ -n "$BASE_REF" ]; then base="origin/$BASE_REF"; fi
+        args=("$INPUT_PATH" --format github)
+        if [ -n "$base" ]; then args+=(--base "$base"); fi
+        if [ "$INPUT_STRICT" = "true" ]; then args+=(--strict); fi
+        node "$ACTION_PATH/bin/security-sidecar.js" check "${args[@]}"
