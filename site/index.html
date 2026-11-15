@@ -81,6 +81,14 @@ footer{margin-top:48px;color:var(--muted);font-size:.9rem}
 .demo[data-stage="3"] .door.gone{border-color:#d14343;background:rgba(209,67,67,.07);transition-delay:1.7s}
 .chip{position:absolute;top:-12px;right:10px;background:#b9770e;color:#fff;font-size:.72rem;font-weight:700;border-radius:999px;padding:2px 10px;opacity:0;transform:translateY(-6px);transition:opacity .4s,transform .4s}
 .demo[data-stage="2"] .chip,.demo[data-stage="3"] .chip{opacity:1;transform:none}
+.grid{margin-top:16px}
+.cmd{font:.8rem/1.5 ui-monospace,Menlo,Consolas,monospace;background:#0a1220;color:#d6e2f0;border-radius:8px;padding:8px 12px;margin:0 0 14px;min-height:3.9em;white-space:pre-wrap;word-break:break-word}
+.rev{font-size:.8rem;color:var(--muted);padding:2px 8px;margin-top:6px;opacity:0;transition:opacity .5s .5s}
+.demo:not([data-stage="0"]) .rev{opacity:1}
+.rev .stale{display:none;color:#b9770e;font-weight:700}
+.demo[data-stage="3"] .door.gone .rev .stale{display:inline}
+.demo[data-stage="3"] .door.gone .rev .fresh{display:none}
+@media(prefers-color-scheme:dark){.rev .stale{color:#f0b24d}}
 .legend{margin:14px 0 0;color:var(--muted);font-size:.88rem}
 details{border:1px solid var(--line);border-radius:12px;background:var(--card);padding:4px 16px;margin:14px 0}
 details>summary{cursor:pointer;font-weight:700;padding:10px 0}
@@ -118,6 +126,7 @@ details[open]>summary{border-bottom:1px solid var(--line);margin-bottom:8px}
   </div>
   <div class="headline" id="headline"></div>
   <p class="sub" id="sub"></p>
+  <div class="cmd" id="cmd" aria-live="off"></div>
   <div class="doors">
     <div class="door ">
       <div class="path">/blog</div>
@@ -130,12 +139,14 @@ details[open]>summary{border-bottom:1px solid var(--line);margin-bottom:8px}
       <div class="path">/api/orders</div>
       <div class="row meant"><span class="k">Meant to be</span><span class="v">Login required</span></div>
       <div class="row code"><span class="k">The code does</span><span class="v"><span class="good">Checks that you are logged in</span><span class="bad">No login check</span></span></div>
+      <div class="rev"><span class="fresh">Reviewed by Dana, 2026-11-01</span><span class="stale">Review is out of date: the code changed after 2026-11-01</span></div>
       <div class="result fail">Mismatch! Meant for logged-in users, but the check is gone</div>
     </div>
     <div class="door ">
       <div class="path">/account/settings</div>
       <div class="row meant"><span class="k">Meant to be</span><span class="v">Login required</span></div>
       <div class="row code"><span class="k">The code does</span><span class="v"><span class="good" style="display:inline">Checks that you are logged in</span></span></div>
+      <div class="rev"><span class="fresh">Reviewed by Dana, 2026-11-01</span></div>
       <div class="result ok">Matches</div>
     </div>
     <div class="door ">
@@ -251,12 +262,17 @@ ROUTE              METHOD  EXPOSURE       GATE  VIA  DECIDED BY  AUTH CHECK  GAP
   var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
   var T=[
     ['Your app has pages and APIs.','Each one is a "route", like a door. Right now nothing says which doors should be open and which should be locked.'],
-    ['Step 1: write down what each one should be.','The AI (or you) saves a short note next to each route: open to anyone, or login required. Clear cases are saved silently, unsure ones ask you.'],
+    ['Step 1: write down what each one should be.','The AI saves a short note next to each route (or you do, with the set command): open to anyone, or login required. A person can also record that they reviewed it.'],
     ['Step 2: later, a code change removes a login check.','It happens in a normal pull request, by a person or an AI. The app still runs, so nobody notices that /api/orders is now open to everyone.'],
-    ['Step 3: the check compares the notes with the code.','It finds that /api/orders is meant to need a login but its check is gone, and warns on the pull request before it is merged.']
+    ['Step 3: the check compares the notes with the code.','It finds that /api/orders is meant to need a login but its check is gone, also notices that the review by Dana is now out of date, and warns on the pull request before it is merged.']
   ];
+  var CMD=['$ ls app/   # 4 routes, no .route.json files yet',
+    '/route-protection-intent:set /api/orders authenticated\n/route-protection-intent:review /api/orders --by Dana',
+    '$ git commit -m "Simplify the orders handler"',
+    '$ route-protection-intent check . --base origin/main --strict'];
+  var cmd=document.getElementById('cmd');
   var DUR=[3500,6000,6000,9000],stage=0,timer=null,paused=false,visible=true;
-  function show(n){stage=n;demo.setAttribute('data-stage',n);hl.textContent=T[n][0];sub.textContent=T[n][1];
+  function show(n){stage=n;demo.setAttribute('data-stage',n);hl.textContent=T[n][0];cmd.textContent=CMD[n];sub.textContent=T[n][1];
     demo.querySelectorAll('[data-go]').forEach(function(b){b.setAttribute('aria-current',String(+b.dataset.go===n))})}
   function stop(){clearTimeout(timer)}
   function plan(){stop();if(paused||reduce||!visible)return;timer=setTimeout(function(){show(stage===3?0:stage+1);plan()},DUR[stage])}
