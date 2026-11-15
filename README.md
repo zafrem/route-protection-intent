@@ -1,7 +1,5 @@
 # security-sidecar
 
-[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/zafrem)
-
 **Documents the protection intent of each web route, so that even if the AI misses something, it can still be caught.**
 
 Each route gets a small `.route.json` sidecar next to its code that says what the route is meant to be: public, login-only, or internal. `check` then compares that intent with the actual code, and warns, for example in a pull request, when an authentication check disappears from a route that is supposed to be protected.
@@ -122,3 +120,5 @@ npm run bundle    # copy the CLI into plugins/security-sidecar/cli (commit the r
 ```
 
 Zero runtime dependencies; Node 18+.
+
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/zafrem)
