@@ -60,7 +60,7 @@ Authentication detection is a text match for common patterns (`getServerSession`
 
 ## Use it on pull requests
 
-Copy [`examples/github-action/security-sidecar.yml`](examples/github-action/security-sidecar.yml) into `.github/workflows/`. It runs `check --base origin/<target branch> --format github --strict`, so findings appear as annotations on the changed files and the job fails. The workflow clones this repo at a commit you pin (`SECURITY_SIDECAR_REF`), so it works in any project; review the commit you pin and move it on purpose. It was verified by running its steps against a separate test repository, not yet on a live pull request in another repo.
+Copy [`examples/github-action/security-sidecar.yml`](examples/github-action/security-sidecar.yml) into `.github/workflows/`. It runs `check --base origin/<target branch> --format github --strict`, so findings appear as annotations on the changed files and the job fails. The workflow clones this repo at the release in `SECURITY_SIDECAR_REF` (`v0.1.0`), so it works in any project. Move it to a newer tag on purpose. A tag can in principle be moved by the repo owner, so pin a full commit hash if you want the strictest setting. It was verified by running its steps against a separate test repository, not yet on a live pull request in another repo.
 
 Locally, from a clone of this repo: `node bin/security-sidecar.js check <your-app> --base main`.
 

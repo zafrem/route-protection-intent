@@ -8,9 +8,9 @@ permissions:
   contents: read
 
 env:
-  # The security-sidecar commit to run. Pinned so a change upstream cannot alter your CI.
-  # Review the commit you pin, and move it on purpose.
-  SECURITY_SIDECAR_REF: 8f6360a42e8db1f4df37475729317421655344a1
+  # The security-sidecar release to run. Pinned so a change upstream cannot alter your CI.
+  # Move it to a newer tag on purpose, after reading its changelog.
+  SECURITY_SIDECAR_REF: v0.1.0
 
 jobs:
   check:
