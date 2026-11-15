@@ -1,0 +1,1 @@
+{"version":1,"mode":"annotate","route":"/api/orders","methods":{"GET":{"exposure":"authenticated","cache":{"policy":"no-store"}}},"reason":{"source":"user"}}

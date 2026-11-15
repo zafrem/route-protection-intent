@@ -368,3 +368,20 @@ test('auth drift: flags a protected route with no auth check, and one removed si
   put(root, 'app/api/orders/.route.json', JSON.stringify({ ...doc, methods: { GET: { exposure: 'public' } } }));
   assert.ok(!check(root, { base: 'HEAD' }).findings.some((f) => /^auth-/.test(f.type)), 'public routes need no auth check');
 });
+
+test('check --base works when the checked folder is a subdirectory of the repo', () => {
+  const { formatGithub } = require('../src/check');
+  const repo = tmp();
+  const sub = path.join(repo, 'examples', 'app');
+  spawnSync('git', ['init'], { cwd: repo });
+  spawnSync('git', ['config', 'user.email', 't@example.com'], { cwd: repo });
+  spawnSync('git', ['config', 'user.name', 'T'], { cwd: repo });
+  put(repo, 'examples/app/app/api/orders/route.ts', 'export async function GET(){ await getServerSession(); }');
+  put(repo, 'examples/app/app/api/orders/.route.json', JSON.stringify({ version: 1, route: '/api/orders', methods: { GET: { exposure: 'authenticated' } } }));
+  spawnSync('git', ['add', '.'], { cwd: repo });
+  spawnSync('git', ['commit', '-m', 'init'], { cwd: repo });
+  put(repo, 'examples/app/app/api/orders/route.ts', 'export async function GET(){ return Response.json([]); }');
+  const r = check(sub, { base: 'HEAD' });
+  assert.ok(r.findings.some((f) => f.type === 'auth-removed'), 'base lookup works from a subdirectory');
+  assert.ok(formatGithub(r).includes('file=examples/app/app/api/orders/route.ts,'), 'annotation path is repo-relative');
+});

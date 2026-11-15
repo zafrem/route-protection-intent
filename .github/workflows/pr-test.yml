@@ -1,0 +1,23 @@
+# Copy to .github/workflows/security-sidecar.yml in your project.
+# Warns on the pull request when a route's code no longer matches its recorded protection intent,
+# for example when an authentication check is removed from a route whose sidecar says it is protected.
+name: security-sidecar-pr-test
+on: pull_request
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0          # the base commit is needed to compare against
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      # Adjust the path to where the CLI lives in your project (it is bundled in the plugin).
+      - run: >
+          node plugins/security-sidecar/cli/bin/security-sidecar.js
+          check examples/pr-test --base "origin/${{ github.base_ref }}" --format github --strict
