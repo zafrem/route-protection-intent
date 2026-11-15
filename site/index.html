@@ -35,6 +35,41 @@ ol.steps li{margin:6px 0}
 .btn.primary{background:var(--accent);color:var(--bg)}
 .btn.coffee{background:#ffdd00;border-color:#ffdd00;color:#000}
 footer{margin-top:48px;color:var(--muted);font-size:.9rem}
+
+.demo{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin:8px 0 0}
+.demo-steps{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.demo-steps button{font:inherit;font-size:.9rem;font-weight:600;color:var(--muted);background:transparent;border:1px solid var(--line);border-radius:999px;padding:5px 14px;cursor:pointer;transition:all .3s}
+.demo-steps button[aria-current="true"]{color:var(--bg);background:var(--accent);border-color:var(--accent)}
+.demo-steps .spacer{flex:1}
+.demo-steps .ctl{font-weight:500}
+.demo-panes{display:grid;gap:12px;grid-template-columns:1fr 1fr}
+@media(max-width:640px){.demo-panes{grid-template-columns:1fr}}
+.pane{background:var(--code);border:1px solid var(--line);border-radius:10px;overflow:hidden;position:relative;transition:border-color .4s,box-shadow .4s}
+.pane h4{margin:0;padding:6px 12px;font:600 .78rem/1.4 ui-monospace,Menlo,Consolas,monospace;color:var(--muted);border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:8px}
+.pane pre{margin:0;border:0;border-radius:0;background:transparent;padding:10px 12px;font-size:.82rem;line-height:1.55;min-height:9.5em;overflow:hidden}
+.ln{display:block;white-space:pre;transition:opacity .5s,max-height .6s,background .5s,color .5s;max-height:2em;border-radius:3px}
+.ln.auth{background:transparent}
+.demo[data-stage="1"] .ln.auth{background:rgba(45,160,100,.22)}
+.demo[data-stage="2"] .ln.auth,.demo[data-stage="3"] .ln.auth{background:rgba(220,60,60,.22);color:#d14343;text-decoration:line-through;opacity:0;max-height:0;transition-delay:.9s,.9s,0s,0s}
+.demo[data-stage="2"] .ln.auth{opacity:1;max-height:2em;transition:none;animation:gone 1.6s .3s forwards}
+@keyframes gone{0%{opacity:1;max-height:2em}60%{opacity:1;max-height:2em}100%{opacity:0;max-height:0}}
+.side-body{opacity:0;transform:translateY(6px);transition:opacity .6s,transform .6s}
+.demo:not([data-stage="0"]) .side-body{opacity:1;transform:none}
+.demo[data-stage="0"] .side-ph{opacity:1}
+.side-ph{position:absolute;left:12px;top:44px;color:var(--muted);font-size:.82rem;opacity:0;transition:opacity .3s}
+.badge{display:inline-block;padding:0 8px;border-radius:999px;font-size:.72rem;font-weight:700;background:var(--accent);color:var(--bg);opacity:0;transition:opacity .4s .5s}
+.demo:not([data-stage="0"]) .badge{opacity:1}
+.demo[data-stage="3"] .pane.side{border-color:#d14343;box-shadow:0 0 0 3px rgba(209,67,67,.25);animation:pulse 1.2s 2}
+@keyframes pulse{50%{box-shadow:0 0 0 7px rgba(209,67,67,.1)}}
+.pr{display:inline-block;font-size:.72rem;font-weight:700;padding:0 8px;border-radius:999px;background:#b9770e;color:#fff;opacity:0;transition:opacity .4s}
+.demo[data-stage="2"] .pr,.demo[data-stage="3"] .pr{opacity:1}
+.term{margin-top:12px;background:#0a1220;color:#d6e2f0;border-radius:10px;padding:10px 12px;font:.8rem/1.55 ui-monospace,Menlo,Consolas,monospace;min-height:7.6em;white-space:pre-wrap;word-break:break-word}
+.term .err{color:#ff7b72}
+.term .dim{color:#8aa0b8}
+.term .cur{display:inline-block;width:.55em;height:1em;background:#d6e2f0;vertical-align:-2px;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.caption{margin:12px 2px 0;color:var(--muted);font-size:.92rem;min-height:3em}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.001s!important;animation-iteration-count:1!important;transition-duration:.001s!important}}
 </style>
 </head>
 <body>
@@ -62,6 +97,38 @@ footer{margin-top:48px;color:var(--muted);font-size:.9rem}
   <li><strong>Compare.</strong> <code>check</code> reads the sidecar and the route code and reports where they disagree.</li>
   <li><strong>Catch.</strong> On a pull request, it flags an authentication check that was removed from a protected route, or a sidecar that was quietly weakened.</li>
 </ol>
+
+
+<h2>See it in action</h2>
+<div class="demo" id="demo" data-stage="0">
+  <div class="demo-steps" role="group" aria-label="Demo steps">
+    <button type="button" data-go="1">1 Record</button>
+    <button type="button" data-go="2">2 Change</button>
+    <button type="button" data-go="3">3 Catch</button>
+    <span class="spacer"></span>
+    <button type="button" class="ctl" id="demo-toggle" aria-pressed="false">Pause</button>
+  </div>
+  <div class="demo-panes">
+    <div class="pane">
+      <h4><span>app/api/orders/route.ts</span><span class="pr">PR #42</span></h4>
+<pre><code><span class="ln">export async function GET() {</span><span class="ln auth">  const session = await getServerSession();</span><span class="ln auth">  if (!session) return new Response('Unauthorized', { status: 401 });</span><span class="ln">  return Response.json(await listOrders());</span><span class="ln">}</span></code></pre>
+    </div>
+    <div class="pane side">
+      <h4><span>app/api/orders/.route.json</span><span class="badge">authenticated</span></h4>
+      <div class="side-ph">no sidecar yet</div>
+<pre class="side-body"><code>{
+  "version": 1,
+  "route": "/api/orders",
+  "methods": {
+    "GET": { "exposure": "authenticated" }
+  }
+}</code></pre>
+    </div>
+  </div>
+  <div class="term" id="term" aria-live="off"></div>
+  <p class="caption" id="caption"></p>
+</div>
+<noscript><p style="color:var(--muted)">The animation needs JavaScript. In short: record the intent, a later change removes the session check, and <code>check</code> reports <code>auth-removed</code>.</p></noscript>
 
 <div class="grid">
   <div class="card"><h3>Catches drift</h3><p>Intent says protected, code shows no authentication check, or a pull request removed the one that was there.</p></div>
@@ -141,5 +208,52 @@ ROUTE              METHOD  EXPOSURE       GATE  VIA  DECIDED BY  AUTH CHECK  GAP
   <a class="btn coffee" href="https://buymeacoffee.com/zafrem">Buy me a coffee</a>
 </footer>
 </main>
+
+<script>
+(function(){
+  var demo=document.getElementById('demo'),term=document.getElementById('term'),cap=document.getElementById('caption'),tog=document.getElementById('demo-toggle');
+  var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var CMD='$ route-protection-intent check . --base origin/main --strict';
+  var ERR='[auth-removed] app/api/orders/route.ts: an authentication check present at origin/main is gone from this route, but its sidecar says it must be protected.';
+  var CAPS=['A route is written. Its intent is recorded next to the code.',
+    'The AI writes a sidecar: this route needs a login. The session check in the code is what enforces it.',
+    'Weeks later, another change removes the session check. Nothing breaks, and the route is now open.',
+    'On the pull request, check compares the recorded intent with the code and flags the mismatch.'];
+  var stage=0,timers=[],paused=false,visible=true,typing=null;
+  function clear(){timers.forEach(clearTimeout);timers=[];clearInterval(typing)}
+  function later(f,ms){timers.push(setTimeout(f,ms))}
+  function html(t){return t.replace(/&/g,'&amp;').replace(/</g,'&lt;')}
+  function setTerm(stage,animate){
+    clearInterval(typing);
+    if(stage<3){term.innerHTML='<span class="dim">$ </span><span class="cur"></span>';return}
+    if(!animate){term.innerHTML=html(CMD)+'\n<span class="err">'+html(ERR)+'</span>\n<span class="dim">1 finding, exit code 1</span>';return}
+    var i=0;typing=setInterval(function(){
+      i++;term.innerHTML=html(CMD.slice(0,i))+(i<CMD.length?'<span class="cur"></span>':'');
+      if(i>=CMD.length){clearInterval(typing);
+        later(function(){term.innerHTML=html(CMD)+'\n<span class="dim">checking 1 route...</span>'},300);
+        later(function(){term.innerHTML=html(CMD)+'\n<span class="err">'+html(ERR)+'</span>\n<span class="dim">1 finding, exit code 1</span>'},1100);
+      }},28);
+  }
+  function show(n,animate){
+    stage=n;demo.setAttribute('data-stage',n);cap.textContent=CAPS[n];
+    demo.querySelectorAll('[data-go]').forEach(function(b){b.setAttribute('aria-current',String(+b.dataset.go===n))});
+    setTerm(n,animate);
+  }
+  function schedule(){
+    clear();if(paused||reduce||!visible)return;
+    var dur=[1800,4200,4200,7500][stage];
+    later(function(){var nxt=stage===3?0:stage+1;show(nxt,true);schedule()},dur);
+  }
+  demo.querySelectorAll('[data-go]').forEach(function(b){b.addEventListener('click',function(){clear();show(+b.dataset.go,true);schedule()})});
+  tog.addEventListener('click',function(){paused=!paused;tog.textContent=paused?'Play':'Pause';tog.setAttribute('aria-pressed',String(paused));
+    if(paused){clear()}else{schedule()}});
+  if(reduce){tog.hidden=true;show(3,false)}else{
+    show(0,false);
+    if('IntersectionObserver' in window){
+      new IntersectionObserver(function(e){visible=e[0].isIntersecting;if(visible){schedule()}else{clear()}},{threshold:.3}).observe(demo);
+    }else{schedule()}
+  }
+})();
+</script>
 </body>
 </html>
