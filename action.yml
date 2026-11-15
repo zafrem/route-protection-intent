@@ -1,4 +1,4 @@
-name: 'security-sidecar check'
+name: 'Route Protection Check'
 description: 'Warns on a pull request when a route stops matching its recorded protection intent, such as a removed auth check.'
 author: 'zafrem'
 branding:

@@ -33,8 +33,8 @@ The directory lists a plugin as a small catalog entry that points at a git repo,
 3. Commit and push everything. Make sure the CI run is green on every OS and Node version, including Windows and Node 18, which have not been tested yet.
 4. Test the install from GitHub on a clean setup:
    ```
-   /plugin marketplace add zafrem/security-sidecar
-   /plugin install security-sidecar --marketplace zafrem/security-sidecar
+   /plugin marketplace add zafrem/route-protection-intent
+   /plugin install security-sidecar --marketplace zafrem/route-protection-intent
    ```
    Then trigger the hook once by writing a route file. This has only been tested with `--plugin-dir` so far.
 5. Tag and release. The catalog pins an exact commit, so tag a commit you are happy with (this step is public, so do it yourself or ask for it explicitly):
@@ -55,12 +55,12 @@ The directory lists a plugin as a small catalog entry that points at a git repo,
      "category": "security",
      "source": {
        "source": "git-subdir",
-       "url": "https://github.com/zafrem/security-sidecar.git",
+       "url": "https://github.com/zafrem/route-protection-intent.git",
        "path": "plugins/security-sidecar",
        "ref": "v0.1.0",
        "sha": "<commit of the tag>"
      },
-     "homepage": "https://github.com/zafrem/security-sidecar"
+     "homepage": "https://github.com/zafrem/route-protection-intent"
    }
    ```
 7. Submit through the form and include the entry. Expect a safety scan and a policy review.

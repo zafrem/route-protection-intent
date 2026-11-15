@@ -4,6 +4,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). The plugin name 
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-11-15
+
+- The repository is renamed to `zafrem/route-protection-intent` (GitHub redirects the old URL for git and web; the Pages address changes to `zafrem.github.io/route-protection-intent`). The plugin identifier `security-sidecar` and the CLI command are unchanged, so install with `/plugin install security-sidecar --marketplace zafrem/route-protection-intent`.
+- The Action's display name is now "Route Protection Check".
+
 ## [0.1.2] - 2026-11-15
 
 - `action.yml`: shortened the description to meet the GitHub Marketplace limit (125 characters). No other change from 0.1.1.

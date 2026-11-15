@@ -45,8 +45,8 @@ footer{margin-top:48px;color:var(--muted);font-size:.9rem}
     <h1>security-sidecar</h1>
     <p class="tag">Documents the protection intent of each web route, so that even if the AI misses something, it can still be caught.</p>
     <div class="btns">
-      <a class="btn primary" href="https://github.com/zafrem/security-sidecar">View on GitHub</a>
-      <a class="btn" href="https://github.com/zafrem/security-sidecar/blob/main/docs/PLAYBOOK.md">Playbook</a>
+      <a class="btn primary" href="https://github.com/zafrem/route-protection-intent">View on GitHub</a>
+      <a class="btn" href="https://github.com/zafrem/route-protection-intent/blob/main/docs/PLAYBOOK.md">Playbook</a>
     </div>
   </div>
 </header>
@@ -121,9 +121,9 @@ ROUTE              METHOD  EXPOSURE       GATE  VIA  DECIDED BY  AUTH CHECK  GAP
 </table>
 
 <h2>Install</h2>
-<pre><code>/plugin marketplace add zafrem/security-sidecar
-/plugin install security-sidecar --marketplace zafrem/security-sidecar</code></pre>
-<p style="color:var(--muted);font-size:.9rem">Installed straight from GitHub (the repo is its own marketplace). It is not in Anthropic's official plugin directory, so read the code before installing. Current release: v0.1.2.</p>
+<pre><code>/plugin marketplace add zafrem/route-protection-intent
+/plugin install security-sidecar --marketplace zafrem/route-protection-intent</code></pre>
+<p style="color:var(--muted);font-size:.9rem">Installed straight from GitHub (the repo is its own marketplace). It is not in Anthropic's official plugin directory, so read the code before installing. Current release: v0.1.3.</p>
 <p>Then check a project: <code>/security-sidecar:check</code>. The CLI is bundled and needs only Node 18+.</p>
 
 <h2>Good to know</h2>
@@ -132,12 +132,12 @@ ROUTE              METHOD  EXPOSURE       GATE  VIA  DECIDED BY  AUTH CHECK  GAP
   <li><code>security-sidecar spec openapi.json</code> compares an OpenAPI (JSON) document with the recorded protection and lists disagreements.</li>
   <li>Authentication detection and the link scan are text matching, so expect misses and some false positives. If a check lives in middleware or a gateway, record it in <code>enforcement.via</code>.</li>
   <li><code>reason.source: user</code> is a convention an agent could forge, so review sidecar changes in pull requests.</li>
-  <li>This is one layer, not a security architecture. See the <a href="https://github.com/zafrem/security-sidecar/blob/main/docs/SECURITY-ARCHITECTURE.md">architecture guide</a> for what has to exist underneath: central authentication, per-record authorization, a separate admin plane and a test that fails when protection is removed.</li>
+  <li>This is one layer, not a security architecture. See the <a href="https://github.com/zafrem/route-protection-intent/blob/main/docs/SECURITY-ARCHITECTURE.md">architecture guide</a> for what has to exist underneath: central authentication, per-record authorization, a separate admin plane and a test that fails when protection is removed.</li>
   <li>For secure-coding rules and linting, rely on <code>/security-review</code> and tools like Semgrep or ESLint security rules.</li>
 </ul>
 
 <footer>
-  <p>MIT licensed · <a href="https://github.com/zafrem/security-sidecar">github.com/zafrem/security-sidecar</a></p>
+  <p>MIT licensed · <a href="https://github.com/zafrem/route-protection-intent">github.com/zafrem/route-protection-intent</a></p>
   <a class="btn coffee" href="https://buymeacoffee.com/zafrem">Buy me a coffee</a>
 </footer>
 </main>

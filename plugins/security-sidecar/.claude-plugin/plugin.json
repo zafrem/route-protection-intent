@@ -1,13 +1,13 @@
 {
   "name": "security-sidecar",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Documents each web route's protection intent in a .route.json sidecar, so that even if the AI misses something, it can still be caught. Flags code that drifts from that intent, such as a removed authentication check. Annotate-only by default.",
   "author": {
     "name": "zafrem"
   },
   "license": "MIT",
-  "homepage": "https://github.com/zafrem/security-sidecar",
-  "repository": "https://github.com/zafrem/security-sidecar",
+  "homepage": "https://github.com/zafrem/route-protection-intent",
+  "repository": "https://github.com/zafrem/route-protection-intent",
   "keywords": [
     "security",
     "routes",

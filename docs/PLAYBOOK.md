@@ -8,8 +8,8 @@ Practical steps for using security-sidecar. For how it works inside see [ARCHITE
 
 1. Install the plugin in Claude Code:
    ```
-   /plugin marketplace add zafrem/security-sidecar
-   /plugin install security-sidecar --marketplace zafrem/security-sidecar
+   /plugin marketplace add zafrem/route-protection-intent
+   /plugin install security-sidecar --marketplace zafrem/route-protection-intent
    ```
 2. Optional, in the project root, `.security-sidecar.config.json`:
    ```json
@@ -146,7 +146,7 @@ Git pre-commit hook (`.git/hooks/pre-commit`, make it executable):
 node plugins/security-sidecar/cli/bin/security-sidecar.js check . --strict || exit 1
 ```
 
-GitHub Actions on pull requests: copy `examples/github-action/security-sidecar.yml` into your own project. It checks out full history, clones security-sidecar at the release in `SECURITY_SIDECAR_REF` (`v0.1.2`), and runs
+GitHub Actions on pull requests: copy `examples/github-action/security-sidecar.yml` into your own project. It checks out full history, clones security-sidecar at the release in `SECURITY_SIDECAR_REF` (`v0.1.3`), and runs
 ```bash
 node "$RUNNER_TEMP/security-sidecar/bin/security-sidecar.js" check . --base "origin/$BASE_BRANCH" --format github --strict
 ```

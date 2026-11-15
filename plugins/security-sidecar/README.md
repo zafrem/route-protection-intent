@@ -7,11 +7,11 @@
 ## Install
 
 ```
-/plugin marketplace add zafrem/security-sidecar
-/plugin install security-sidecar --marketplace zafrem/security-sidecar
+/plugin marketplace add zafrem/route-protection-intent
+/plugin install security-sidecar --marketplace zafrem/route-protection-intent
 ```
 
-This plugin is installed straight from the `zafrem/security-sidecar` GitHub repository (it is its own marketplace). It is not listed in Anthropic's official plugin directory, so Claude Code treats it like any third-party plugin: read the code before you install it. Current release: `v0.1.2`.
+This plugin is installed straight from the `zafrem/route-protection-intent` GitHub repository (it is its own marketplace). It is not listed in Anthropic's official plugin directory, so Claude Code treats it like any third-party plugin: read the code before you install it. Current release: `v0.1.3`.
 
 Requires Node 18 or newer. The CLI is bundled in this plugin; nothing else is installed.
 
@@ -35,4 +35,4 @@ Requires Node 18 or newer. The CLI is bundled in this plugin; nothing else is in
 
 ## More
 
-Full documentation, configuration and security policy: https://github.com/zafrem/security-sidecar
+Full documentation, configuration and security policy: https://github.com/zafrem/route-protection-intent

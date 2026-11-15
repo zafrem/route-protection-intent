@@ -10,7 +10,7 @@ permissions:
 env:
   # The security-sidecar release to run. Pinned so a change upstream cannot alter your CI.
   # Move it to a newer tag on purpose, after reading its changelog.
-  SECURITY_SIDECAR_REF: v0.1.2
+  SECURITY_SIDECAR_REF: v0.1.3
 
 jobs:
   check:
@@ -24,7 +24,7 @@ jobs:
           node-version: 22
       - name: Fetch security-sidecar
         run: |
-          git clone --quiet https://github.com/zafrem/security-sidecar "$RUNNER_TEMP/security-sidecar"
+          git clone --quiet https://github.com/zafrem/route-protection-intent "$RUNNER_TEMP/security-sidecar"
           git -C "$RUNNER_TEMP/security-sidecar" checkout --quiet "$SECURITY_SIDECAR_REF"
       # Use "check ." when the app is at the repository root, or "check apps/web" for a subfolder.
       - run: node "$RUNNER_TEMP/security-sidecar/bin/security-sidecar.js" check . --base "origin/${{ github.base_ref }}" --format github --strict

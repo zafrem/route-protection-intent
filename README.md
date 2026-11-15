@@ -38,11 +38,11 @@ That is the whole idea: a written record of what each route should do, and a che
 Install in Claude Code (needs Node 18+):
 
 ```
-/plugin marketplace add zafrem/security-sidecar
-/plugin install security-sidecar --marketplace zafrem/security-sidecar
+/plugin marketplace add zafrem/route-protection-intent
+/plugin install security-sidecar --marketplace zafrem/route-protection-intent
 ```
 
-This plugin is installed straight from this GitHub repository (it is its own marketplace). It is not listed in Anthropic's official plugin directory, so Claude Code treats it like any third-party plugin: read the code before you install it. Current release: `v0.1.2`.
+This plugin is installed straight from this GitHub repository (it is its own marketplace). It is not listed in Anthropic's official plugin directory, so Claude Code treats it like any third-party plugin: read the code before you install it. Current release: `v0.1.3`.
 
 Then run `/security-sidecar:check` in your project. Routes without a sidecar show up as `missing`; ask Claude to classify them. From then on, writing or editing a route file records its intent automatically: clear cases are saved silently, unclear ones ask you, and the default is the secured side.
 
@@ -141,12 +141,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
-      - uses: zafrem/security-sidecar@v0.1.2
+      - uses: zafrem/route-protection-intent@v0.1.3
 ```
 
-Inputs: `path` (default `.`), `base` (default `origin/<target branch>`), `strict` (default `true`). The action exists from `v0.1.2` (`v0.1.1` has an `action.yml` that the Marketplace rejects); the copyable workflow below does the same without it.
+Inputs: `path` (default `.`), `base` (default `origin/<target branch>`), `strict` (default `true`). The action exists from `v0.1.3` (earlier tags have an `action.yml` the Marketplace rejects); the copyable workflow below does the same without it.
 
-Or copy [`examples/github-action/security-sidecar.yml`](examples/github-action/security-sidecar.yml) into `.github/workflows/`. It runs `check --base origin/<target branch> --format github --strict`, so findings appear as annotations on the changed files and the job fails. The workflow clones this repo at the release in `SECURITY_SIDECAR_REF` (`v0.1.2`), so it works in any project. Move it to a newer tag on purpose. A tag can in principle be moved by the repo owner, so pin a full commit hash if you want the strictest setting. It was verified by running its steps against a separate test repository, not yet on a live pull request in another repo.
+Or copy [`examples/github-action/security-sidecar.yml`](examples/github-action/security-sidecar.yml) into `.github/workflows/`. It runs `check --base origin/<target branch> --format github --strict`, so findings appear as annotations on the changed files and the job fails. The workflow clones this repo at the release in `SECURITY_SIDECAR_REF` (`v0.1.3`), so it works in any project. Move it to a newer tag on purpose. A tag can in principle be moved by the repo owner, so pin a full commit hash if you want the strictest setting. It was verified by running its steps against a separate test repository, not yet on a live pull request in another repo.
 
 `--base` needs full git history (`fetch-depth: 0`). If the ref cannot be used, `check` reports `base-unresolved` and fails instead of passing without a comparison.
 
@@ -220,6 +220,6 @@ npm test          # core + hook tests
 npm run bundle    # copy the CLI into plugins/security-sidecar/cli (commit the result)
 ```
 
-Zero runtime dependencies; Node 18+. More on the [showcase site](https://zafrem.github.io/security-sidecar/).
+Zero runtime dependencies; Node 18+. More on the [showcase site](https://zafrem.github.io/route-protection-intent/).
 
 [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/zafrem)
