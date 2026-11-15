@@ -8,7 +8,7 @@ function parseArgs(argv) {
     const a = argv[i];
     if (a.startsWith('--')) {
       const k = a.slice(2);
-      if (['strict', 'json', 'include-mutating', 'allow-remote', 'github-output'].includes(k)) flags[k] = true; else flags[k] = argv[++i];
+      if (['strict', 'json', 'include-mutating', 'allow-remote', 'github-output', 'yes', 'clear'].includes(k)) flags[k] = true; else flags[k] = argv[++i];
     } else pos.push(a);
   }
   return { pos, flags };
@@ -73,13 +73,24 @@ function main(argv) {
         process.stdout.write(format(r, flags.format || (flags.json ? 'json' : 'table')) + '\n');
         return r.exitCode;
       }
+      case 'set': case 'review': case 'note': case 'unset': {
+        const E = require('./edit');
+        const root = path.resolve(flags.root || process.cwd());
+        let r;
+        if (cmd === 'set') r = E.set(root, rest[0], rest[1], { methods: flags.method });
+        else if (cmd === 'review') r = E.review(root, rest[0], { by: flags.by, date: flags.date });
+        else if (cmd === 'note') r = E.note(root, rest[0], rest[1], { methods: flags.method, clear: !!flags.clear });
+        else r = E.unset(root, rest[0], { yes: !!flags.yes });
+        const { code, ...body } = r; out(body);
+        return r.ok ? 0 : (code || 2);
+      }
       case 'compile': {
         const r = require('./compile').compile(path.resolve(rest[0] || process.cwd()), flags.target);
         const { code, ...body } = r; out(body);
         return code;
       }
       default:
-        process.stderr.write('usage: route-protection-intent <analyze|save|check|report|verify|spec|compile> ...\n');
+        process.stderr.write('usage: route-protection-intent <analyze|save|set|review|note|unset|check|report|verify|spec|compile> ...\n');
         return 64;
     }
   } catch (e) {

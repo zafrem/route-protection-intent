@@ -24,7 +24,7 @@ function canonical(doc) {
 }
 
 // Never clobber what a person decided: user-chosen methods and notes survive heuristic re-saves.
-function merge(existing, incoming) {
+function merge(existing, incoming, keepNotes = true) {
   const doc = { ...incoming };
   doc.version = 1;
   doc.mode = existing.mode || incoming.mode || 'annotate';
@@ -38,14 +38,14 @@ function merge(existing, incoming) {
     doc.reason = existing.reason;
   }
   // A person's comment on a method survives a re-save that does not carry one.
-  for (const [m, p] of Object.entries(doc.methods)) {
+  for (const [m, p] of keepNotes ? Object.entries(doc.methods) : []) {
     const old = existing.methods && existing.methods[m];
     if (old && old.note && !p.note) doc.methods[m] = { ...p, note: old.note };
   }
   return doc;
 }
 
-function save(dir, policy, { file = '.route.json' } = {}) {
+function save(dir, policy, { file = '.route.json', keepNotes = true } = {}) {
   if (!SIDECAR_NAME.test(file)) return { ok: false, code: 2, error: `invalid sidecar file name: ${file}` };
   if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) return { ok: false, code: 2, error: `not a directory: ${dir}` };
 
@@ -55,7 +55,7 @@ function save(dir, policy, { file = '.route.json' } = {}) {
   if (fs.existsSync(target)) {
     try { existing = JSON.parse(fs.readFileSync(target, 'utf8')); } catch { /* corrupt: replaced below */ }
   }
-  const doc = existing ? merge(existing, incoming) : { mode: 'annotate', ...incoming };
+  const doc = existing ? merge(existing, incoming, keepNotes) : { mode: 'annotate', ...incoming };
 
   const rv = doc.reason || {};
   if (Boolean(rv.reviewedBy) !== Boolean(rv.reviewedAt)) {

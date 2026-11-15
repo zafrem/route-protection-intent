@@ -815,3 +815,81 @@ test('report shows REVIEWED only when a review is recorded', () => {
   assert.match(out, /REVIEWED/);
   assert.match(out, /Dana 2026-11-15/);
 });
+
+// --- set / review / note / unset ---
+const E = require('../src/edit');
+const mkApp = () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'rpi-'));
+  put(root, 'app/api/orders/route.ts', 'export async function GET(){ return Response.json([]) }\nexport async function POST(){ return Response.json({}) }');
+  return root;
+};
+const sc = (root) => JSON.parse(fs.readFileSync(path.join(root, 'app/api/orders/.route.json'), 'utf8'));
+
+test('set creates a sidecar from a route, then updates it and drops an earlier review', () => {
+  const root = mkApp();
+  const r = E.set(root, '/api/orders', 'authenticated');
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(r.action, 'created');
+  assert.deepStrictEqual(Object.keys(sc(root).methods), ['GET', 'POST']);
+  assert.strictEqual(sc(root).reason.source, 'user');
+  assert.strictEqual(E.review(root, '/api/orders', { by: 'Dana', date: '2026-11-01' }).ok, true);
+  const u = E.set(root, '/api/orders', 'public', { methods: 'GET' });
+  assert.strictEqual(u.action, 'updated');
+  assert.ok(u.warnings.some((w) => /lowers/.test(w)));
+  assert.strictEqual(sc(root).methods.GET.exposure, 'public');
+  assert.strictEqual(sc(root).methods.POST.exposure, 'authenticated');
+  assert.strictEqual(sc(root).reason.reviewedBy, undefined);
+});
+
+test('set rejects a bad exposure and an unknown route', () => {
+  const root = mkApp();
+  assert.strictEqual(E.set(root, '/api/orders', 'secret').ok, false);
+  assert.strictEqual(E.set(root, '/nope', 'public').ok, false);
+});
+
+test('review needs a name and a real, non-future date', () => {
+  const root = mkApp();
+  E.set(root, '/api/orders', 'authenticated');
+  assert.strictEqual(E.review(root, '/api/orders', {}).ok, false);
+  assert.strictEqual(E.review(root, '/api/orders', { by: 'Dana', date: '2026-13-45' }).ok, false);
+  assert.strictEqual(E.review(root, '/api/orders', { by: 'Dana', date: '2999-01-01' }).ok, false);
+  assert.strictEqual(E.review(root, '/api/orders', { by: 'Dana' }).ok, true);
+  assert.strictEqual(sc(root).reason.reviewedBy, 'Dana');
+  assert.match(sc(root).reason.reviewedAt, /^\d{4}-\d{2}-\d{2}$/);
+});
+
+test('review of a route with no sidecar is refused', () => {
+  assert.strictEqual(E.review(mkApp(), '/api/orders', { by: 'Dana' }).ok, false);
+});
+
+test('note adds, targets one method, rejects secrets, and clears', () => {
+  const root = mkApp();
+  E.set(root, '/api/orders', 'authenticated');
+  assert.strictEqual(E.note(root, 'app/api/orders', 'kept login-only for billing', { methods: 'POST' }).ok, true);
+  assert.strictEqual(sc(root).methods.POST.note, 'kept login-only for billing');
+  assert.strictEqual(sc(root).methods.GET.note, undefined);
+  assert.strictEqual(E.note(root, '/api/orders', 'password=hunter2hunter2hunter2').ok, false);
+  assert.strictEqual(E.note(root, '/api/orders', '', { clear: true }).ok, true);
+  assert.strictEqual(sc(root).methods.POST.note, undefined);
+});
+
+test('unset asks for confirmation, then removes', () => {
+  const root = mkApp();
+  E.set(root, '/api/orders', 'authenticated');
+  const dry = E.unset(root, '/api/orders');
+  assert.strictEqual(dry.ok, false);
+  assert.strictEqual(dry.needsConfirmation, true);
+  assert.ok(fs.existsSync(path.join(root, 'app/api/orders/.route.json')));
+  assert.strictEqual(E.unset(root, '/api/orders', { yes: true }).ok, true);
+  assert.ok(!fs.existsSync(path.join(root, 'app/api/orders/.route.json')));
+});
+
+test('CLI: set then review via the command line', () => {
+  const root = mkApp();
+  const bin = path.join(__dirname, '..', 'bin', 'route-protection-intent.js');
+  const run = (...a) => spawnSync('node', [bin, ...a, '--root', root], { encoding: 'utf8' });
+  assert.strictEqual(run('set', '/api/orders', 'internal').status, 0);
+  assert.strictEqual(run('review', '/api/orders', '--by', 'Dana').status, 0);
+  assert.strictEqual(run('review', '/api/orders').status, 2);
+  assert.strictEqual(run('unset', '/api/orders').status, 3);
+});

@@ -11,7 +11,7 @@
 /plugin install route-protection-intent --marketplace zafrem/route-protection-intent
 ```
 
-This plugin is installed straight from the `zafrem/route-protection-intent` GitHub repository (it is its own marketplace). It is not listed in Anthropic's official plugin directory, so Claude Code treats it like any third-party plugin: read the code before you install it. Current release: `v0.1.5`.
+This plugin is installed straight from the `zafrem/route-protection-intent` GitHub repository (it is its own marketplace). It is not listed in Anthropic's official plugin directory, so Claude Code treats it like any third-party plugin: read the code before you install it. Current release: `v0.1.6`.
 
 Requires Node 18 or newer. The CLI is bundled in this plugin; nothing else is installed.
 
@@ -21,6 +21,10 @@ Requires Node 18 or newer. The CLI is bundled in this plugin; nothing else is in
 | --- | --- |
 | Hook (`PostToolUse` on `Write` and `Edit`) | Runs route analysis on route files, and warns about links to admin routes in any edited file |
 | Skill `route-policy` | Saves clear classifications silently; asks you when unsure, for an admin gate, and before any link to a protected route is kept |
+| `/route-protection-intent:set` | Create or change what a route is meant to be: `set /api/orders authenticated` (`--method GET,POST` for some methods only) |
+| `/route-protection-intent:review` | Record that a person reviewed a route: `review /api/orders --by Dana` (date defaults to today) |
+| `/route-protection-intent:note` | Add or clear a short reason on a route: `note /api/orders "login only for billing"` or `--clear` |
+| `/route-protection-intent:unset` | Remove a sidecar, after asking you to confirm |
 | `/route-protection-intent:check` | Finds missing, orphan, invalid and unclassified sidecars, exposed admin paths, and code that drifted from the recorded intent (`--base <git-ref>` also catches removed auth checks and downgrades) |
 | `/route-protection-intent:report` | The route inventory: each route and method with its recorded protection, who decided it, whether an authentication check is visible in the code, and the gaps |
 | `/route-protection-intent:verify` | Sends requests without credentials to a running local or staging app and compares each answer with the recorded protection (a protected route answering 200 is a gap) |

@@ -32,8 +32,19 @@ Practical steps for using route-protection-intent. For how it works inside see [
 1. You or the agent add or edit a route.
 2. The plugin classifies it. **Clear cases are saved silently.** Unclear ones ask you to choose secured, public, or leave unclassified.
 3. Review the new `.route.json` in the diff like any other file.
-   When a person has confirmed a route, record it: `"reason": { "source": "user", "reviewedBy": "Dana", "reviewedAt": "2026-11-15" }` (both fields, YYYY-MM-DD). Tell Claude who reviewed and when; it never makes these up. See section 4a.
+   When a person has confirmed a route, record it with `/route-protection-intent:review /api/orders --by Dana` (the date defaults to today; Claude asks for the name and never makes one up). See section 4a.
 4. Run `/route-protection-intent:check` before you merge.
+
+## 2a. Changing a sidecar by hand
+
+You do not have to edit the JSON. Four commands, each also a CLI subcommand (`route-protection-intent set ...`), take the route as a URL (`/api/orders`) or a path to its file or folder:
+
+- `set <route> <public|authenticated|internal> [--method GET,POST]` creates or updates the sidecar. A new decision replaces an earlier review (it covered the old policy). Lowering protection prints a warning, and `check --base` will report it as a `policy-downgrade` in the pull request.
+- `review <route> --by <name> [--date YYYY-MM-DD]` records who reviewed it and when. The name is required.
+- `note <route> "<text>" [--method GET]` adds a short reason; `--clear` removes it. Secret-like text is refused.
+- `unset <route>` shows what would be removed and asks to confirm (`--yes` on the CLI). Use it for an `orphan`. A sidecar in `enforce` mode is refused.
+
+If a route name matches more than one sidecar, the command lists the candidates; pass the sidecar path instead.
 
 ## 3. Scenarios
 
@@ -149,13 +160,13 @@ Git pre-commit hook (`.git/hooks/pre-commit`, make it executable):
 node plugins/route-protection-intent/cli/bin/route-protection-intent.js check . --strict || exit 1
 ```
 
-GitHub Actions on pull requests: copy `examples/github-action/route-protection-intent.yml` into your own project. It checks out full history, clones route-protection-intent at the release in `ROUTE_PROTECTION_INTENT_REF` (`v0.1.5`), and runs
+GitHub Actions on pull requests: copy `examples/github-action/route-protection-intent.yml` into your own project. It checks out full history, clones route-protection-intent at the release in `ROUTE_PROTECTION_INTENT_REF` (`v0.1.6`), and runs
 ```bash
 node "$RUNNER_TEMP/route-protection-intent/bin/route-protection-intent.js" check . --base "origin/$BASE_BRANCH" --format github --strict
 ```
 so each finding shows as an annotation on the changed file (`auth-removed` and `policy-downgrade` as errors, the rest as warnings). Move the pin to a newer tag on purpose; a tag can in principle be moved, so use a full commit hash for the strictest setting. If the app is in a subfolder, replace `.` with that folder.
 
-Instead of copying the workflow you can use the Action, `zafrem/route-protection-intent@v0.1.5` (displayed as "Route Protection Check"). Inputs: `path`, `base`, `strict` (default `true`; `false` warns only). Outputs for later steps: `findings`, `errors` (`auth-removed`, `policy-downgrade`, `base-unresolved`), `warnings` and `routes`. Use `if: always()` on a step that reads them, because a strict failure ends the job. The CLI writes them with `check --github-output` when `$GITHUB_OUTPUT` is set.
+Instead of copying the workflow you can use the Action, `zafrem/route-protection-intent@v0.1.6` (displayed as "Route Protection Check"). Inputs: `path`, `base`, `strict` (default `true`; `false` warns only). Outputs for later steps: `findings`, `errors` (`auth-removed`, `policy-downgrade`, `base-unresolved`), `warnings` and `routes`. Use `if: always()` on a step that reads them, because a strict failure ends the job. The CLI writes them with `check --github-output` when `$GITHUB_OUTPUT` is set.
 
 `--base` needs the base commit available locally. A shallow clone (`fetch-depth: 1`) or a mistyped ref cannot compare, so `check` reports `base-unresolved` and exits 1 instead of passing without a comparison. Keep `fetch-depth: 0`.
 

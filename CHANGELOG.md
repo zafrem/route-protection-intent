@@ -4,6 +4,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Releases up to 0
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-11-15
+
+- New commands `set`, `review`, `note` and `unset` (slash commands and CLI subcommands, `--root <dir>` for the project) to create and change a sidecar without hand-editing it. They write through `save`, so validation and secret refusal are unchanged. `review` requires `--by`; `set` replaces an earlier review; `unset` needs confirmation (`--yes`) and refuses `enforce` sidecars.
 ## [0.1.5] - 2026-11-15
 
 - Review record: optional `reason.reviewedBy` and `reason.reviewedAt` in a sidecar (both or neither, `source: user`). `check` reports `review-stale` when the route code changed after the review day; `report` adds a REVIEWED column when any review exists.

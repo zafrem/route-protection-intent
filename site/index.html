@@ -153,7 +153,8 @@ details[open]>summary{border-bottom:1px solid var(--line);margin-bottom:8px}
   <div class="card"><h3>Catches drift</h3><p>Intent says protected, code shows no authentication check, or a pull request removed the one that was there.</p></div>
   <div class="card"><h3>Catches downgrades</h3><p>Flags a pull request that lowers exposure, or removes a gate, rate limit or network restriction from a sidecar.</p></div>
   <div class="card"><h3>Verifies the running app</h3><p>Sends credential-free requests to a local or staging app. A protected route that answers 200 is reported as a gap. Safe methods only by default.</p></div>
-  <div class="card"><h3>Records who reviewed</h3><p>A sidecar can note who confirmed a route and when. If the route code changes after that date, the check flags the review as stale.</p></div>
+  <div class="card"><h3>Records who reviewed</h3><p>One command notes who confirmed a route and when. If the route code changes after that date, the check flags the review as stale.</p></div>
+  <div class="card"><h3>Edit with short commands</h3><p><code>set</code>, <code>review</code>, <code>note</code> and <code>unset</code> change a route's record without hand-editing JSON. Same validation and secret refusal as the automatic saves.</p></div>
   <div class="card"><h3>Guards admin pages</h3><p>An extra gate (SSO, MFA or a passphrase of 8+ characters), a network restriction, and no links or sitemap entries unless you approve.</p></div>
 </div>
 
@@ -213,10 +214,17 @@ ROUTE              METHOD  EXPOSURE       GATE  VIA  DECIDED BY  AUTH CHECK  GAP
 
 </details>
 
+<h2>Change a record</h2>
+<pre><code>/route-protection-intent:set /api/orders authenticated
+/route-protection-intent:review /api/orders --by Dana
+/route-protection-intent:note /api/orders "login only for billing"
+/route-protection-intent:unset /api/orders</code></pre>
+<p style="color:var(--muted);font-size:.9rem">Each also works as a shell command (<code>route-protection-intent set /api/orders authenticated</code>). Removing asks you to confirm first, and the reviewer's name is never guessed.</p>
+
 <h2>Install</h2>
 <pre><code>/plugin marketplace add zafrem/route-protection-intent
 /plugin install route-protection-intent --marketplace zafrem/route-protection-intent</code></pre>
-<p style="color:var(--muted);font-size:.9rem">Installed straight from GitHub (the repo is its own marketplace). It is not in Anthropic's official plugin directory, so read the code before installing. Current release: v0.1.5.</p>
+<p style="color:var(--muted);font-size:.9rem">Installed straight from GitHub (the repo is its own marketplace). It is not in Anthropic's official plugin directory, so read the code before installing. Current release: v0.1.6.</p>
 <p>Then check a project: <code>/route-protection-intent:check</code>. The CLI is bundled and needs only Node 18+.</p>
 
 <h2>Good to know</h2>
