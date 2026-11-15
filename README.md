@@ -60,9 +60,9 @@ Authentication detection is a text match for common patterns (`getServerSession`
 
 ## Use it on pull requests
 
-Copy [`examples/github-action/security-sidecar.yml`](examples/github-action/security-sidecar.yml) into `.github/workflows/`. It runs `check --base origin/<target branch> --format github --strict`, so findings appear as annotations on the changed files and the job fails.
+Copy [`examples/github-action/security-sidecar.yml`](examples/github-action/security-sidecar.yml) into `.github/workflows/`. It runs `check --base origin/<target branch> --format github --strict`, so findings appear as annotations on the changed files and the job fails. The workflow clones this repo at a commit you pin (`SECURITY_SIDECAR_REF`), so it works in any project; review the commit you pin and move it on purpose. It was verified by running its steps against a separate test repository, not yet on a live pull request in another repo.
 
-Locally: `node plugins/security-sidecar/cli/bin/security-sidecar.js check . --base main`.
+Locally, from a clone of this repo: `node bin/security-sidecar.js check <your-app> --base main`.
 
 ## How the intent gets recorded
 

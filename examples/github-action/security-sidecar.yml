@@ -7,6 +7,11 @@ on: pull_request
 permissions:
   contents: read
 
+env:
+  # The security-sidecar commit to run. Pinned so a change upstream cannot alter your CI.
+  # Review the commit you pin, and move it on purpose.
+  SECURITY_SIDECAR_REF: 8f6360a42e8db1f4df37475729317421655344a1
+
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -17,7 +22,9 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      # Adjust the path to where the CLI lives in your project (it is bundled in the plugin).
-      - run: >
-          node plugins/security-sidecar/cli/bin/security-sidecar.js
-          check . --base "origin/${{ github.base_ref }}" --format github --strict
+      - name: Fetch security-sidecar
+        run: |
+          git clone --quiet https://github.com/zafrem/security-sidecar "$RUNNER_TEMP/security-sidecar"
+          git -C "$RUNNER_TEMP/security-sidecar" checkout --quiet "$SECURITY_SIDECAR_REF"
+      # Use "check ." when the app is at the repository root, or "check apps/web" for a subfolder.
+      - run: node "$RUNNER_TEMP/security-sidecar/bin/security-sidecar.js" check . --base "origin/${{ github.base_ref }}" --format github --strict

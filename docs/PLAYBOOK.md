@@ -96,11 +96,11 @@ Git pre-commit hook (`.git/hooks/pre-commit`, make it executable):
 node plugins/security-sidecar/cli/bin/security-sidecar.js check . --strict || exit 1
 ```
 
-GitHub Actions on pull requests: copy `examples/github-action/security-sidecar.yml`. It checks out full history and runs
+GitHub Actions on pull requests: copy `examples/github-action/security-sidecar.yml` into your own project. It checks out full history, clones security-sidecar at the commit in `SECURITY_SIDECAR_REF`, and runs
 ```bash
-node plugins/security-sidecar/cli/bin/security-sidecar.js check . --base "origin/$BASE_BRANCH" --format github --strict
+node "$RUNNER_TEMP/security-sidecar/bin/security-sidecar.js" check . --base "origin/$BASE_BRANCH" --format github --strict
 ```
-so each finding shows as an annotation on the changed file (`auth-removed` and `policy-downgrade` as errors, the rest as warnings). Adjust the path to where the CLI lives in your project.
+so each finding shows as an annotation on the changed file (`auth-removed` and `policy-downgrade` as errors, the rest as warnings). Pin a commit you have reviewed and move it on purpose. If the app is in a subfolder, replace `.` with that folder.
 
 `--base` needs the base commit available locally. A shallow clone (`fetch-depth: 1`) or a mistyped ref cannot compare, so `check` reports `base-unresolved` and exits 1 instead of passing without a comparison. Keep `fetch-depth: 0`.
 
