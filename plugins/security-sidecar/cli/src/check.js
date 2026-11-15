@@ -14,7 +14,7 @@ const EXPOSURE_RANK = { unclassified: 0, public: 1, authenticated: 2, internal: 
 const SAFE_REF = /^[A-Za-z0-9_./~^-]+$/;
 function gitShow(root, base, rel) {
   if (!base || !SAFE_REF.test(base)) return null;
-  const g = spawnSync('git', ['show', `${base}:${rel}`], { cwd: root, encoding: 'utf8' });
+  const g = spawnSync('git', ['show', `${base}:./${rel}`], { cwd: root, encoding: 'utf8' });
   return g.status === 0 ? g.stdout : null;
 }
 // Where the check is declared to live outside the route code: no signal expected in the handler.
@@ -111,6 +111,12 @@ function diffSidecar(oldDoc, newDoc, rel) {
   return out;
 }
 
+// Path of `root` inside its git repository ('' at the top). GitHub annotations need repo-relative paths.
+function repoPrefix(root) {
+  const g = spawnSync('git', ['rev-parse', '--show-prefix'], { cwd: root, encoding: 'utf8' });
+  return g.status === 0 ? g.stdout.trim() : '';
+}
+
 function check(root = process.cwd(), { strict = false, base } = {}) {
   const config = R.loadConfig(root);
   const findings = [];
@@ -175,7 +181,7 @@ function check(root = process.cwd(), { strict = false, base } = {}) {
   findings.sort((a, b) => (a.file < b.file ? -1 : a.file > b.file ? 1 : a.type < b.type ? -1 : 1));
   return {
     ok: failing.length === 0, exitCode: failing.length ? 1 : 0, strict,
-    routes: expected.size, sidecars: existing.length, findings,
+    routes: expected.size, sidecars: existing.length, findings, pathPrefix: repoPrefix(root),
     summary: findings.length ? `${findings.length} finding(s)` : 'all routes have valid sidecars',
   };
 }
@@ -192,7 +198,7 @@ function format(r) {
 const ERROR_TYPES = new Set(['auth-removed', 'policy-downgrade']);
 function formatGithub(r) {
   const esc = (t) => String(t).replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
-  return r.findings.map((f) => `::${ERROR_TYPES.has(f.type) ? 'error' : 'warning'} file=${f.file},title=${f.type}::${esc(f.message)}`).join('\n');
+  return r.findings.map((f) => `::${ERROR_TYPES.has(f.type) ? 'error' : 'warning'} file=${(r.pathPrefix || '') + f.file},title=${f.type}::${esc(f.message)}`).join('\n');
 }
 
 module.exports = { check, format, formatGithub, diffSidecar };
