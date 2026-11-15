@@ -357,7 +357,7 @@ test('auth drift: flags a protected route with no auth check, and one removed si
   const r = check(root, { base: 'HEAD' });
   assert.ok(r.findings.some((f) => f.type === 'auth-removed' && f.file === 'app/api/orders/route.ts'));
   assert.ok(!r.findings.some((f) => f.type === 'auth-not-found'), 'removal is reported once');
-  assert.ok(/^::error file=app\/api\/orders\/route\.ts,title=auth-removed::/.test(formatGithub(r)));
+  assert.ok(/^::error file=app\/api\/orders\/route\.ts,line=1,title=auth-removed::/.test(formatGithub(r)));
   const noBase = check(root);
   assert.ok(noBase.findings.some((f) => f.type === 'auth-not-found'), 'without a base it still warns');
   put(root, 'app/api/orders/.route.json', JSON.stringify({ ...doc, enforcement: { via: ['api-gateway'] } }));
@@ -383,5 +383,22 @@ test('check --base works when the checked folder is a subdirectory of the repo',
   put(repo, 'examples/app/app/api/orders/route.ts', 'export async function GET(){ return Response.json([]); }');
   const r = check(sub, { base: 'HEAD' });
   assert.ok(r.findings.some((f) => f.type === 'auth-removed'), 'base lookup works from a subdirectory');
-  assert.ok(formatGithub(r).includes('file=examples/app/app/api/orders/route.ts,'), 'annotation path is repo-relative');
+  assert.ok(formatGithub(r).includes('file=examples/app/app/api/orders/route.ts,line=1,'), 'annotation path is repo-relative and has a line');
+});
+
+test('auth-removed annotation points at the first changed line', () => {
+  const { formatGithub } = require('../src/check');
+  const root = tmp();
+  spawnSync('git', ['init'], { cwd: root });
+  spawnSync('git', ['config', 'user.email', 't@example.com'], { cwd: root });
+  spawnSync('git', ['config', 'user.name', 'T'], { cwd: root });
+  const lines = ['import x from "y";', '', 'export async function GET(){', '  const s = await getServerSession();', '  if (!s) return new Response("no",{status:401});', '  return Response.json([]);', '}', ''];
+  put(root, 'app/api/orders/route.ts', lines.join('\n'));
+  put(root, 'app/api/orders/.route.json', JSON.stringify({ version: 1, route: '/api/orders', methods: { GET: { exposure: 'authenticated' } } }));
+  spawnSync('git', ['add', '.'], { cwd: root });
+  spawnSync('git', ['commit', '-m', 'init'], { cwd: root });
+  put(root, 'app/api/orders/route.ts', [lines[0], lines[1], lines[2], lines[5], lines[6], ''].join('\n'));
+  const f = check(root, { base: 'HEAD' }).findings.find((x) => x.type === 'auth-removed');
+  assert.strictEqual(f.line, 3, 'a deletion is reported on the line before it (the handler)');
+  assert.ok(formatGithub({ findings: [f], pathPrefix: '' }).includes(',line=3,title=auth-removed::'));
 });

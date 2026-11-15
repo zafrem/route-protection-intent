@@ -17,6 +17,13 @@ function gitShow(root, base, rel) {
   const g = spawnSync('git', ['show', `${base}:./${rel}`], { cwd: root, encoding: 'utf8' });
   return g.status === 0 ? g.stdout : null;
 }
+// First line of `rf` that differs from `base`, so an annotation lands on the pull request's diff.
+function firstChangedLine(root, base, rf) {
+  if (!base || !SAFE_REF.test(base)) return undefined;
+  const g = spawnSync('git', ['diff', '-U0', base, '--', rf], { cwd: root, encoding: 'utf8' });
+  const m = g.status === 0 && /^@@ -\S+ \+(\d+)/m.exec(g.stdout);
+  return m ? Math.max(1, Number(m[1])) : undefined;
+}
 // Where the check is declared to live outside the route code: no signal expected in the handler.
 // Sign-in endpoints are reachable before authentication by design, so a missing check there is not drift.
 const AUTH_ENTRY = /(^|\/)(login|logout|signin|signup|register|auth|session|callback|oauth)(\/|$)/i;
@@ -36,7 +43,7 @@ function checkAuthDrift(root, sidecarRel, doc, routeFiles = [], base) {
     const hadBefore = before != null && hasAuthSignal(before);
     const hasNow = hasAuthSignal(now);
     if (hadBefore && !hasNow) {
-      out.push({ type: 'auth-removed', file: rf, message: `an authentication check present at ${base} is gone from this route, but its sidecar (${sidecarRel}) says it must be protected. Restore it, or change the recorded intent on purpose` });
+      out.push({ type: 'auth-removed', file: rf, line: firstChangedLine(root, base, rf), message: `an authentication check present at ${base} is gone from this route, but its sidecar (${sidecarRel}) says it must be protected. Restore it, or change the recorded intent on purpose` });
     } else if (!hasNow && !external && !AUTH_ENTRY.test(doc.route || '')) {
       out.push({ type: 'auth-not-found', file: rf, message: `sidecar ${sidecarRel} says this route is protected, but no authentication check was found in the route code. If it is enforced elsewhere (middleware, gateway), record that in enforcement.via` });
     }
@@ -198,7 +205,7 @@ function format(r) {
 const ERROR_TYPES = new Set(['auth-removed', 'policy-downgrade']);
 function formatGithub(r) {
   const esc = (t) => String(t).replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
-  return r.findings.map((f) => `::${ERROR_TYPES.has(f.type) ? 'error' : 'warning'} file=${(r.pathPrefix || '') + f.file},title=${f.type}::${esc(f.message)}`).join('\n');
+  return r.findings.map((f) => `::${ERROR_TYPES.has(f.type) ? 'error' : 'warning'} file=${(r.pathPrefix || '') + f.file}${f.line ? `,line=${f.line}` : ''},title=${f.type}::${esc(f.message)}`).join('\n');
 }
 
 module.exports = { check, format, formatGithub, diffSidecar };
