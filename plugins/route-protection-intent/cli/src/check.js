@@ -52,6 +52,22 @@ function checkAuthDrift(root, sidecarRel, doc, routeFiles = [], base, authRegexe
   return out;
 }
 
+// The route code changed in git after the recorded review date, so the review may no longer hold.
+// Day granularity: a change committed on the review day itself is not flagged. No git history, no finding.
+function checkReviewStale(root, sidecarRel, doc, routeFiles = []) {
+  const r = doc.reason || {};
+  if (!r.reviewedAt) return [];
+  const out = [];
+  for (const rf of routeFiles) {
+    const g = spawnSync('git', ['log', '-1', '--format=%cI', '--', rf], { cwd: root, encoding: 'utf8' });
+    const changed = g.status === 0 ? g.stdout.trim().slice(0, 10) : '';
+    if (changed && changed > r.reviewedAt) {
+      out.push({ type: 'review-stale', file: rf, message: `route code last changed ${changed}, after the review by ${r.reviewedBy || 'unknown'} on ${r.reviewedAt} (${sidecarRel}). Re-check the intent, then update reason.reviewedAt` });
+    }
+  }
+  return out;
+}
+
 function checkIntentCodeDrift(root, sidecarRel, doc, routeFiles = []) {
   const out = [];
   const methods = Object.values(doc.methods || {});
@@ -186,6 +202,7 @@ function check(root = process.cwd(), { strict = false, base } = {}) {
       const rfs = routeFilesBySidecar.get(rel);
       findings.push(...checkIntentCodeDrift(root, rel, doc, rfs));
       findings.push(...checkAuthDrift(root, rel, doc, rfs, base, config.authRegexes));
+      findings.push(...checkReviewStale(root, rel, doc, rfs));
     }
     const old = gitShow(root, base, rel);
     if (old) { try { findings.push(...diffSidecar(JSON.parse(old), doc, rel)); } catch { /* ignore invalid base json */ } }
@@ -226,9 +243,14 @@ function format(r) {
 
 // GitHub Actions annotations: show findings on the pull request's changed lines.
 const ERROR_TYPES = new Set(['auth-removed', 'policy-downgrade', 'base-unresolved']);
+// Findings per severity, the same split formatGithub uses for error vs warning annotations.
+function countFindings(r) {
+  const errors = r.findings.filter((f) => ERROR_TYPES.has(f.type)).length;
+  return { findings: r.findings.length, errors, warnings: r.findings.length - errors, routes: r.routes };
+}
 function formatGithub(r) {
   const esc = (t) => String(t).replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
   return r.findings.map((f) => `::${ERROR_TYPES.has(f.type) ? 'error' : 'warning'} ${f.file ? `file=${(r.pathPrefix || '') + f.file}${f.line ? `,line=${f.line}` : ''},` : ''}title=${f.type}::${esc(f.message + (f.note ? ` Note recorded for this route: ${f.note}` : ''))}`).join('\n');
 }
 
-module.exports = { check, format, formatGithub, diffSidecar, AUTH_ENTRY, EXTERNAL_VIA };
+module.exports = { check, format, formatGithub, countFindings, diffSidecar, AUTH_ENTRY, EXTERNAL_VIA };

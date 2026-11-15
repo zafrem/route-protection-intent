@@ -8,7 +8,7 @@ function parseArgs(argv) {
     const a = argv[i];
     if (a.startsWith('--')) {
       const k = a.slice(2);
-      if (['strict', 'json', 'include-mutating', 'allow-remote'].includes(k)) flags[k] = true; else flags[k] = argv[++i];
+      if (['strict', 'json', 'include-mutating', 'allow-remote', 'github-output'].includes(k)) flags[k] = true; else flags[k] = argv[++i];
     } else pos.push(a);
   }
   return { pos, flags };
@@ -41,6 +41,10 @@ function main(argv) {
       }
       case 'check': {
         const r = require('./check').check(rest[0] || process.cwd(), { strict: !!flags.strict, base: flags.base });
+        if (flags['github-output'] && process.env.GITHUB_OUTPUT) {
+          const c = require('./check').countFindings(r);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, Object.entries(c).map(([k, v]) => `${k}=${v}`).join('\n') + '\n');
+        }
         if (flags.json) out(r);
         else if (flags.format === 'github') { const t = require('./check').formatGithub(r); if (t) process.stdout.write(t + '\n'); process.stdout.write(require('./check').format(r) + '\n'); }
         else process.stdout.write(require('./check').format(r) + '\n');

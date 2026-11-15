@@ -47,7 +47,7 @@ function report(root = process.cwd(), { strict = false } = {}) {
       if (p.exposure === 'public' && authCheck === 'yes') gaps.push('public-with-auth-check');
       row({
         route: e.path || doc.route, pathFrom: e.path ? 'source' : 'file', method, exposure: p.exposure, gate: (doc.gate && doc.gate.type) || '',
-        via: via.join(','), decidedBy: (doc.reason && doc.reason.source) || '', authCheck, sidecar: sc, files, gaps,
+        via: via.join(','), decidedBy: (doc.reason && doc.reason.source) || '', reviewed: doc.reason && doc.reason.reviewedBy ? `${doc.reason.reviewedBy} ${doc.reason.reviewedAt}` : '', authCheck, sidecar: sc, files, gaps,
       });
     }
   }
@@ -74,19 +74,23 @@ function report(root = process.cwd(), { strict = false } = {}) {
     internal: count((r) => r.exposure === 'internal'),
     unrecorded: count((r) => r.exposure === '(none)' || r.exposure === 'unclassified' || r.exposure === '(invalid)'),
     decidedByPerson: count((r) => r.decidedBy === 'user'),
+    reviewed: count((r) => r.reviewed),
     withGaps: count((r) => r.gaps.length),
   };
   return { ok: !strict || summary.withGaps === 0, exitCode: strict && summary.withGaps ? 1 : 0, summary, rows };
 }
 
-const COLS = [['ROUTE', 'route'], ['METHOD', 'method'], ['EXPOSURE', 'exposure'], ['GATE', 'gate'], ['VIA', 'via'], ['DECIDED BY', 'decidedBy'], ['AUTH CHECK', 'authCheck'], ['GAPS', 'gaps']];
+const BASE_COLS = [['ROUTE', 'route'], ['METHOD', 'method'], ['EXPOSURE', 'exposure'], ['GATE', 'gate'], ['VIA', 'via'], ['DECIDED BY', 'decidedBy'], ['AUTH CHECK', 'authCheck'], ['GAPS', 'gaps']];
+// REVIEWED appears only once some route has a recorded review, so existing output stays the same.
+const colsFor = (r) => (r.summary.reviewed ? [...BASE_COLS.slice(0, 6), ['REVIEWED', 'reviewed'], ...BASE_COLS.slice(6)] : BASE_COLS);
 const cell = (r, k) => (k === 'gaps' ? r.gaps.join(', ') : r[k]) || '-';
 
 function summaryLine(s) {
-  return `${s.routes} route(s), ${s.entries} entr${s.entries === 1 ? 'y' : 'ies'}: ${s.public} public, ${s.authenticated} authenticated, ${s.internal} internal, ${s.unrecorded} without a recorded decision; ${s.decidedByPerson} confirmed by a person; ${s.withGaps} with gaps`;
+  return `${s.routes} route(s), ${s.entries} entr${s.entries === 1 ? 'y' : 'ies'}: ${s.public} public, ${s.authenticated} authenticated, ${s.internal} internal, ${s.unrecorded} without a recorded decision; ${s.decidedByPerson} confirmed by a person${s.reviewed ? `; ${s.reviewed} with a recorded review` : ''}; ${s.withGaps} with gaps`;
 }
 
 function formatTable(r) {
+  const COLS = colsFor(r);
   const data = r.rows.map((x) => COLS.map(([, k]) => cell(x, k)));
   const widths = COLS.map(([h], i) => Math.max(h.length, ...data.map((d) => d[i].length)));
   const line = (cells) => cells.map((c, i) => c.padEnd(widths[i])).join('  ').trimEnd();
@@ -94,6 +98,7 @@ function formatTable(r) {
 }
 
 function formatMarkdown(r) {
+  const COLS = colsFor(r);
   const esc = (t) => String(t).replace(/\|/g, '\\|');
   const head = `| ${COLS.map(([h]) => h).join(' | ')} |\n| ${COLS.map(() => '---').join(' | ')} |`;
   const body = r.rows.map((x) => `| ${COLS.map(([, k]) => esc(k === 'route' ? `\`${cell(x, k)}\`` : cell(x, k))).join(' | ')} |`);
@@ -101,6 +106,7 @@ function formatMarkdown(r) {
 }
 
 function formatCsv(r) {
+  const COLS = colsFor(r);
   const q = (t) => (/[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t);
   return [COLS.map(([h]) => q(h)).join(','), ...r.rows.map((x) => COLS.map(([, k]) => q(k === 'gaps' ? x.gaps.join(' ') : x[k] || '')).join(','))].join('\n');
 }

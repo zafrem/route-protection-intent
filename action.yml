@@ -19,10 +19,25 @@ inputs:
     required: false
     default: 'true'
 
+outputs:
+  findings:
+    description: 'Total number of findings.'
+    value: ${{ steps.check.outputs.findings }}
+  errors:
+    description: 'Findings reported as errors (auth-removed, policy-downgrade, base-unresolved).'
+    value: ${{ steps.check.outputs.errors }}
+  warnings:
+    description: 'Findings reported as warnings (everything else).'
+    value: ${{ steps.check.outputs.warnings }}
+  routes:
+    description: 'Number of routes checked.'
+    value: ${{ steps.check.outputs.routes }}
+
 runs:
   using: 'composite'
   steps:
     - name: Run route-protection-intent check
+      id: check
       shell: bash
       env:
         INPUT_PATH: ${{ inputs.path }}
@@ -33,7 +48,7 @@ runs:
       run: |
         base="$INPUT_BASE"
         if [ -z "$base" ] && [ -n "$BASE_REF" ]; then base="origin/$BASE_REF"; fi
-        args=("$INPUT_PATH" --format github)
+        args=("$INPUT_PATH" --format github --github-output)
         if [ -n "$base" ]; then args+=(--base "$base"); fi
         if [ "$INPUT_STRICT" = "true" ]; then args+=(--strict); fi
         node "$ACTION_PATH/bin/route-protection-intent.js" check "${args[@]}"

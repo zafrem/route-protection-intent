@@ -4,6 +4,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Releases up to 0
 
 ## [Unreleased]
 
+- Review record: optional `reason.reviewedBy` and `reason.reviewedAt` in a sidecar (both or neither, `source: user`). `check` reports `review-stale` when the route code changed after the review day; `report` adds a REVIEWED column when any review exists.
+- The Action now has outputs: `findings`, `errors`, `warnings` and `routes` (`check --github-output` writes them to `$GITHUB_OUTPUT`).
+- The marketplace entry declares `license: MIT`. The README states the license, the naming (project vs plugin vs Action) and that the Action defaults to `strict: true` while the plugin and CLI only warn.
+
 ## [0.1.4] - 2026-11-15
 
 - **Breaking rename.** Everything that was called `security-sidecar` is now `route-protection-intent`: the plugin and its slash commands (`/route-protection-intent:check`, and so on), the CLI command and `bin/` file, the plugin folder, the config file (`.route-protection-intent.config.json`; an old `.security-sidecar.config.json` is no longer read, so move your `adminPaths`, `authPatterns` and `verify.samples`), the generated files (`route-protection-intent.nginx.conf`, `.nextjs.js`, `._headers`), the example workflow and its `ROUTE_PROTECTION_INTENT_REF` variable. `.route.json` sidecars are unchanged. Reinstall with `/plugin install route-protection-intent --marketplace zafrem/route-protection-intent`.

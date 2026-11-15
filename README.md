@@ -6,6 +6,10 @@
 
 Each route gets a small `.route.json` file next to its code that says what the route is meant to be: public, login-only, or internal. `check` compares that record with the actual code and warns, for example in a pull request, when an authentication check disappears from a route that is supposed to be protected.
 
+**Naming:** *Route Protection Intent* is the project. It ships as one Claude Code plugin and CLI (`route-protection-intent`) and a GitHub Action inside this repo (displayed as *Route Protection Check*). Everything else, such as the sidecar (`.route.json`), is a part of it. The old name `security-sidecar` was retired in 0.1.4.
+
+**License:** [MIT](LICENSE).
+
 > **Annotation is not protection.** By default (`mode: annotate`) this tool only records intent and warns. It blocks nothing, and a route with a sidecar is not thereby protected.
 
 ## The core in one example
@@ -146,7 +150,9 @@ jobs:
       - uses: zafrem/route-protection-intent@v0.1.4
 ```
 
-Inputs: `path` (default `.`), `base` (default `origin/<target branch>`), `strict` (default `true`). The action exists from `v0.1.4` (earlier tags have an `action.yml` the Marketplace rejects); the copyable workflow below does the same without it.
+**Defaults differ on purpose:** the plugin and the CLI only warn and exit 0 unless you pass `--strict`; the Action and the example workflow run with `strict: true`, so a finding fails the job. Set `strict: false` on the Action to warn only.
+
+Inputs: `path` (default `.`), `base` (default `origin/<target branch>`), `strict` (default `true`). Outputs (for later steps, use `if: always()` since a strict failure ends the job): `findings` (total), `errors` (`auth-removed`, `policy-downgrade`, `base-unresolved`), `warnings` (all others), `routes`. The same counts are in `check --json`. The action exists from `v0.1.4` (earlier tags have an `action.yml` the Marketplace rejects); the copyable workflow below does the same without it.
 
 Or copy [`examples/github-action/route-protection-intent.yml`](examples/github-action/route-protection-intent.yml) into `.github/workflows/`. It runs `check --base origin/<target branch> --format github --strict`, so findings appear as annotations on the changed files and the job fails. The workflow clones this repo at the release in `ROUTE_PROTECTION_INTENT_REF` (`v0.1.4`), so it works in any project. Move it to a newer tag on purpose. A tag can in principle be moved by the repo owner, so pin a full commit hash if you want the strictest setting. It was verified by running its steps against a separate test repository, not yet on a live pull request in another repo.
 
@@ -169,8 +175,19 @@ Locally, from a clone of this repo: `node bin/route-protection-intent.js check <
 | `intent-code-mismatch` | The route code's caching or `robots` metadata contradicts the sidecar |
 | `admin-path-exposed` | A link, sitemap entry or `robots.txt` line points at an admin, gated or internal route |
 | `admin-no-gate`, `admin-no-network-restriction` | An admin or internal route lacks the recorded extra gate or network restriction |
+| `review-stale` | The route code changed in git after the date in `reason.reviewedAt`, so the recorded review may no longer hold |
 | `base-unresolved` | `--base` was given but the ref cannot be used (typo, shallow clone) |
 | `missing`, `orphan`, `unclassified`, `schema` | A route has no sidecar, a sidecar has no route, a value is undecided, or the file is invalid |
+
+### Recording that a person reviewed a route
+
+Add who and when to the sidecar's `reason`:
+
+```json
+"reason": { "source": "user", "reviewedBy": "Dana", "reviewedAt": "2026-11-15" }
+```
+
+Both fields go together and need `source: "user"`; `save` rejects anything else. `report` then adds a REVIEWED column and counts reviewed routes, and `check` reports `review-stale` when the route's code was committed on a later day than `reviewedAt`. Limits: the day is the unit (a change on the review day itself is not flagged), it needs git history, and the name is only text in a file, so it is a record for reviewers, not proof. Review `.route.json` changes in pull requests (for example with CODEOWNERS). A new decision saved by a person replaces the review, because the old one covered the old policy.
 
 ### How the intent gets recorded
 

@@ -57,6 +57,13 @@ function save(dir, policy, { file = '.route.json' } = {}) {
   }
   const doc = existing ? merge(existing, incoming) : { mode: 'annotate', ...incoming };
 
+  const rv = doc.reason || {};
+  if (Boolean(rv.reviewedBy) !== Boolean(rv.reviewedAt)) {
+    return { ok: false, code: 2, error: 'reason.reviewedBy and reason.reviewedAt go together: give both or neither' };
+  }
+  if (rv.reviewedBy && rv.source !== 'user') {
+    return { ok: false, code: 2, error: 'a review is a person\'s act: set reason.source to "user" together with reviewedBy and reviewedAt' };
+  }
   // Making a protected route linkable removes a protection, so it needs the user's own approval.
   if (doc.linkable === true && !(existing && existing.linkable === true) && !(doc.reason && doc.reason.source === 'user')) {
     return { ok: false, code: 2, error: '"linkable": true needs the user\'s approval: ask them, then save with reason.source "user"' };

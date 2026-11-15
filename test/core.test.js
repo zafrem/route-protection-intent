@@ -7,7 +7,8 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 const { analyzeSource, analyze } = require('../src/analyze');
 const { save } = require('../src/save');
-const { check } = require('../src/check');
+const { check, countFindings } = require('../src/check');
+const { report, format: formatReport } = require('../src/report');
 const { compile } = require('../src/compile');
 const R = require('../src/routes');
 
@@ -759,4 +760,58 @@ test('spec: compares an OpenAPI document with the recorded sidecars', () => {
   assert.strictEqual(protection({}, [{ k: [] }]), 'protected');
   assert.strictEqual(protection({ security: [] }, [{ k: [] }]), 'public');
   assert.strictEqual(norm('/A/{id}/b/:x/[y]/<int:z>'), '/a/{}/b/{}/{}/{}');
+});
+
+test('countFindings splits errors from warnings', () => {
+  const r = { routes: 3, findings: [{ type: 'auth-removed' }, { type: 'missing' }, { type: 'orphan' }] };
+  assert.deepStrictEqual(countFindings(r), { findings: 3, errors: 1, warnings: 2, routes: 3 });
+});
+
+test('check --github-output writes counts to GITHUB_OUTPUT', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'rpi-'));
+  fs.mkdirSync(path.join(root, 'app/api/x'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'app/api/x/route.ts'), 'export async function GET(){ return new Response("ok") }');
+  const out = path.join(root, 'gh-output');
+  const bin = path.join(__dirname, '..', 'bin', 'route-protection-intent.js');
+  const r = spawnSync('node', [bin, 'check', root, '--github-output'], { env: { ...process.env, GITHUB_OUTPUT: out }, encoding: 'utf8' });
+  assert.strictEqual(r.status, 0);
+  const text = fs.readFileSync(out, 'utf8');
+  assert.match(text, /^findings=1$/m);
+  assert.match(text, /^warnings=1$/m);
+  assert.match(text, /^errors=0$/m);
+  assert.match(text, /^routes=1$/m);
+});
+
+test('review fields: save accepts a complete review and rejects a partial one', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpi-'));
+  const pol = (reason) => ({ route: '/a', methods: { GET: { exposure: 'authenticated' } }, reason });
+  assert.strictEqual(save(dir, pol({ source: 'user', reviewedBy: 'Dana', reviewedAt: '2026-11-15' })).ok, true);
+  assert.strictEqual(save(dir, pol({ source: 'user', reviewedBy: 'Dana' })).ok, false);
+  const fresh = fs.mkdtempSync(path.join(os.tmpdir(), 'rpi-'));
+  assert.strictEqual(save(fresh, pol({ source: 'heuristic', reviewedBy: 'Dana', reviewedAt: '2026-11-15' })).ok, false);
+  assert.strictEqual(save(dir, pol({ source: 'user', reviewedBy: 'Dana', reviewedAt: 'yesterday' })).ok, false);
+});
+
+test('review-stale: code changed after reviewedAt is flagged, earlier change is not', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'rpi-'));
+  const git = (...a) => spawnSync('git', a, { cwd: root, env: { ...process.env, GIT_COMMITTER_DATE: '2026-11-10T12:00:00Z', GIT_AUTHOR_DATE: '2026-11-10T12:00:00Z' } });
+  git('init'); git('config', 'user.email', 't@example.com'); git('config', 'user.name', 'T');
+  put(root, 'app/me/route.ts', 'export async function GET(){ await getServerSession(); }');
+  const sc = (reviewedAt) => JSON.stringify({ version: 1, route: '/me', methods: { GET: { exposure: 'authenticated' } }, reason: { source: 'user', reviewedBy: 'Dana', reviewedAt } });
+  put(root, 'app/me/.route.json', sc('2026-11-12'));
+  git('add', '.'); git('commit', '-m', 'init');
+  assert.ok(!check(root).findings.some((f) => f.type === 'review-stale'));
+  put(root, 'app/me/.route.json', sc('2026-11-05'));
+  assert.ok(check(root).findings.some((f) => f.type === 'review-stale'));
+});
+
+test('report shows REVIEWED only when a review is recorded', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'rpi-'));
+  put(root, 'app/blog/page.tsx', 'export default function P(){ return null }');
+  put(root, 'app/blog/.route.json', JSON.stringify({ version: 1, route: '/blog', methods: { GET: { exposure: 'public' } }, reason: { source: 'user' } }));
+  assert.ok(!formatReport(report(root)).includes('REVIEWED'));
+  put(root, 'app/blog/.route.json', JSON.stringify({ version: 1, route: '/blog', methods: { GET: { exposure: 'public' } }, reason: { source: 'user', reviewedBy: 'Dana', reviewedAt: '2026-11-15' } }));
+  const out = formatReport(report(root));
+  assert.match(out, /REVIEWED/);
+  assert.match(out, /Dana 2026-11-15/);
 });
