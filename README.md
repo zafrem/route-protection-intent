@@ -1,4 +1,6 @@
-# security-sidecar
+# Route Protection Intent
+
+_Repository `route-protection-intent`. The Claude Code plugin and the command-line tool are both named `security-sidecar`; the GitHub Action is "Route Protection Check"._
 
 **Documents the protection intent of each web route, so that even if the AI misses something, it can still be caught.**
 
