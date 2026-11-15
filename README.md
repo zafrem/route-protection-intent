@@ -2,6 +2,8 @@
 
 **Documents the protection intent of each web route, so that even if the AI misses something, it can still be caught.**
 
+**[See how it works in a 30-second animated demo →](https://zafrem.github.io/route-protection-intent/)**
+
 Each route gets a small `.route.json` file next to its code that says what the route is meant to be: public, login-only, or internal. `check` compares that record with the actual code and warns, for example in a pull request, when an authentication check disappears from a route that is supposed to be protected.
 
 > **Annotation is not protection.** By default (`mode: annotate`) this tool only records intent and warns. It blocks nothing, and a route with a sidecar is not thereby protected.
