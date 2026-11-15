@@ -102,7 +102,7 @@ node plugins/security-sidecar/cli/bin/security-sidecar.js check . --base "origin
 ```
 so each finding shows as an annotation on the changed file (`auth-removed` and `policy-downgrade` as errors, the rest as warnings). Adjust the path to where the CLI lives in your project.
 
-`--base` needs the base commit available locally. A shallow clone (`fetch-depth: 1`) cannot compare, and then the removed-check and downgrade findings are silently skipped, so keep `fetch-depth: 0`.
+`--base` needs the base commit available locally. A shallow clone (`fetch-depth: 1`) or a mistyped ref cannot compare, so `check` reports `base-unresolved` and exits 1 instead of passing without a comparison. Keep `fetch-depth: 0`.
 
 ## 5. Finding reference
 
@@ -118,6 +118,7 @@ so each finding shows as an annotation on the changed file (`auth-removed` and `
 | `admin-path-exposed` | Remove the link, sitemap or `robots.txt` entry, or approve it as in scenario E |
 | `auth-removed` | Restore the authentication check, or change the sidecar on purpose (and review that change) |
 | `auth-not-found` | Add the check in the route, or, if middleware or a gateway does it, record that in `enforcement.via` |
+| `base-unresolved` | The `--base` ref is invalid or not available. Fetch full history (`fetch-depth: 0`) or fix the ref name |
 | `policy-downgrade` | Confirm the weaker policy is intended; otherwise restore the previous sidecar value |
 | `intent-code-mismatch` | Align the route's caching or `robots` metadata with the sidecar, or update the sidecar |
 | `linkable-not-approved` | Confirm with the owner, then re-save with `reason.source: user`, or remove `linkable` |
@@ -131,7 +132,8 @@ so each finding shows as an annotation on the changed file (`auth-removed` and `
 - When unsure, secure it. Wrongly public costs more than wrongly secured.
 - Hide admin URLs for noise reduction only. The real controls are the network restriction, the gate and server-side role checks.
 - Never put passwords, keys, tokens or connection strings in a sidecar, including `notes`. `save` will refuse them.
-- Let the tool write sidecars. Hand edits are fine for `notes`, but not for `linkable`.
+- Let the tool write sidecars. Hand edits are fine for `notes` and a method's `note`, but not for `linkable`.
+- Use a method's `note` to say why it is set that way ("creates an order, needs a session"). `check` prints it next to any finding for that route, so a reviewer sees the intent without opening the sidecar.
 - Review sidecar changes in pull requests. A change from `authenticated` to `public` deserves a second pair of eyes; consider CODEOWNERS for `*.route.json`.
 
 ## 7. Maintaining the tool itself

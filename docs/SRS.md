@@ -122,6 +122,7 @@ Only routes the heuristics cannot classify with confidence reach the user; every
 | `cache` | No | `policy`: `no-store`, `private`, `public`, `unspecified`; optional `maxAgeSec` | Caching intent. Omitting it claims nothing |
 | `indexing` | No | `index`, `noindex` | Search engine indexing intent (SEO), independent of protection |
 | `rateLimit` | No | `windowMs`, `max` | Rate limiting intent |
+| `note` | No | String, up to 300 characters | A person's comment on this method (why it is set this way) |
 | `enforcement.via` | No | `app-middleware`, `api-gateway`, `waf`, `ip-allowlist`, `mtls`, `other`, `none` | How this intent is upheld. For the record only; it is not verified |
 | `gate` | No | `type`: `passphrase`, `sso`, `mfa`, `basic-auth`, `other`; `minLength` (integer, 8 or more) | The extra access step required for the route, such as an admin page. Only the type and minimum length are recorded; the secret is never stored |
 | `linkable` | No | `true` | Explicitly allows links to this route from elsewhere. Absent means admin, gated and internal routes must not be linked |
@@ -178,6 +179,7 @@ The must-have features of v1 (P0) are detection, classification suggestions, que
 
 | ID | Requirement | Priority |
 | --- | --- | --- |
+| FR-4.2a | A per-method `note` is kept when a later save does not carry one, and `check` shows the notes of a route next to each of its findings (text and `--format github`). | P1 |
 | FR-4.1 | `save` validates against the schema before writing and never overwrites fields a person edited (`notes`, user-chosen values). | P0 |
 | FR-4.2 | `save` refuses to write when a secret-like value is present. | P0 |
 | FR-4.3 | The default `mode` of a new sidecar is `annotate`. | P0 |
@@ -196,6 +198,7 @@ The must-have features of v1 (P0) are detection, classification suggestions, que
 | FR-5.1e | `save` refuses `linkable: true` unless the policy carries `reason.source: user` (or the sidecar was already linkable), and `check` warns (`linkable-not-approved`) when `linkable: true` is present without `reason.source: user`. The skill must ask the user before setting it, even when the user's own request mentioned the link. | P0 |
 | FR-5.1g | Warn (`auth-not-found`) when a sidecar has an `authenticated` or `internal` method but no authentication signal is found in the route source, unless `enforcement.via` names an external control (`app-middleware`, `api-gateway`, `waf`, `ip-allowlist`, `mtls`). | P0 |
 | FR-5.1h | With `--base <git-ref>`, report `auth-removed` when an authentication signal present in the route source at that ref is gone and the sidecar still says the route is protected. | P0 |
+| FR-5.1j | If `--base` is given but the ref is invalid or cannot be resolved, `check` reports `base-unresolved` and exits 1 even in annotate mode. It never skips the comparison silently. A ref starting with `-` is rejected. | P0 |
 | FR-5.1i | `check --format github` prints a `::error` (`auth-removed`, `policy-downgrade`) or `::warning` annotation per finding so a pull request shows them on the changed files. | P1 |
 | FR-5.3 | Print both a human-readable summary and machine-readable JSON (`--json`). | P1 |
 

@@ -5,7 +5,7 @@ const { validate } = require('./validate');
 const { findSecrets } = require('./secrets');
 
 const KEY_ORDER = ['version', 'mode', 'route', 'methods', 'enforcement', 'gate', 'linkable', 'reason', 'notes'];
-const POLICY_ORDER = ['exposure', 'cache', 'indexing', 'rateLimit'];
+const POLICY_ORDER = ['exposure', 'cache', 'indexing', 'rateLimit', 'note'];
 const METHOD_ORDER = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS', '*'];
 const SIDECAR_NAME = /^(?:[A-Za-z0-9_-]+)?\.route\.json$/;
 
@@ -34,6 +34,11 @@ function merge(existing, incoming) {
   if (existingIsUser && !incomingIsUser) {
     Object.assign(doc.methods, existing.methods);
     doc.reason = existing.reason;
+  }
+  // A person's comment on a method survives a re-save that does not carry one.
+  for (const [m, p] of Object.entries(doc.methods)) {
+    const old = existing.methods && existing.methods[m];
+    if (old && old.note && !p.note) doc.methods[m] = { ...p, note: old.note };
   }
   return doc;
 }

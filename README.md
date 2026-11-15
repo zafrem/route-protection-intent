@@ -37,6 +37,8 @@ A sidecar is a small JSON file (`app/api/orders/.route.json`):
 }
 ```
 
+A method can carry a short `note` (up to 300 characters) saying why it is set that way; it is kept on re-save and printed next to any finding for the route.
+
 More on the [showcase site](https://zafrem.github.io/security-sidecar/).
 
 ## What it catches
@@ -47,6 +49,7 @@ More on the [showcase site](https://zafrem.github.io/security-sidecar/).
 | --- | --- |
 | `auth-removed` | An authentication check present at `--base` is gone from a route whose sidecar says it is protected |
 | `auth-not-found` | The sidecar says protected, but no authentication check is visible in the route code |
+| `base-unresolved` | `--base` was given but the ref cannot be used (typo, shallow clone), so no comparison was made. Always fails the run |
 | `policy-downgrade` | A pull request weakened the intent itself: exposure lowered, gate, rate limit or network restriction removed |
 | `intent-code-mismatch` | The route code's caching or `robots` metadata contradicts the sidecar |
 | `admin-path-exposed` | A link, sitemap entry or `robots.txt` line points at an admin, gated or internal route |

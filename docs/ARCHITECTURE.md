@@ -62,7 +62,7 @@ All logic lives in one dependency-free Node CLI plus one JSON schema. The Claude
 
 A sidecar describes one route, per HTTP method. Exposure, caching and enforcement are separate fields, so protection is never equated with CDN caching.
 
-- **Per method:** `exposure` (`public`, `authenticated`, `internal`, `unclassified`), `cache`, `indexing`, `rateLimit`.
+- **Per method:** `exposure` (`public`, `authenticated`, `internal`, `unclassified`), `cache`, `indexing`, `rateLimit`, and an optional `note` (one comment, up to 300 characters, kept across re-saves and shown next to findings for that route).
 - **Per route:** `mode` (`annotate` default, `enforce`), `enforcement.via`, `gate`, `linkable`, `reason`, `notes`.
 - `additionalProperties: false` everywhere, so unknown fields are rejected.
 
@@ -104,6 +104,7 @@ Walk the repo once, then compare the set of *expected* sidecars (from route file
 | `intent-code-mismatch` | Route caching or `robots` metadata contradicts the sidecar |
 | `auth-not-found` | Sidecar says protected but no auth signal is in the route code, and `enforcement.via` names no external control |
 | `auth-removed` | With `--base`: an auth signal present at the base ref is gone from the route code (reported instead of `auth-not-found`) |
+| `base-unresolved` | `--base` was given but the ref is invalid or cannot be resolved (typo, shallow clone). Always exits 1, so a pipeline never passes without the comparison |
 | `policy-downgrade` | With `--base`: the sidecar's exposure, gate, rate limit, mode or network restriction was weakened since the base ref |
 
 Exit code: 0 in annotate mode; 1 if `--strict` is given or the finding belongs to an `enforce` sidecar. `--format github` prints one `::error` (`auth-removed`, `policy-downgrade`) or `::warning` line per finding, which GitHub shows as annotations on the pull request.

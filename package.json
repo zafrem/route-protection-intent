@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Documents each web route's protection intent in a .route.json sidecar and flags when the code drifts from it.",
   "license": "MIT",
+  "private": true,
   "bin": {
     "security-sidecar": "bin/security-sidecar.js"
   },

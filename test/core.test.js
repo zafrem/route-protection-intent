@@ -402,3 +402,49 @@ test('auth-removed annotation points at the first changed line', () => {
   assert.strictEqual(f.line, 3, 'a deletion is reported on the line before it (the handler)');
   assert.ok(formatGithub({ findings: [f], pathPrefix: '' }).includes(',line=3,title=auth-removed::'));
 });
+
+test('per-method note: saved, kept on re-save, shown by check, validated', () => {
+  const { formatGithub } = require('../src/check');
+  const root = tmp();
+  const dir = path.join(root, 'app', 'api', 'orders');
+  fs.mkdirSync(dir, { recursive: true });
+  put(root, 'app/api/orders/route.ts', 'export async function GET(){}\nexport async function POST(){}');
+  const policy = { route: '/api/orders', methods: { GET: { exposure: 'public', note: 'status page, safe to cache' }, POST: { exposure: 'authenticated', note: 'creates an order' } }, reason: { source: 'user' } };
+  assert.strictEqual(save(dir, policy).code, 0);
+  const saved = JSON.parse(fs.readFileSync(path.join(dir, '.route.json'), 'utf8'));
+  assert.strictEqual(saved.methods.POST.note, 'creates an order');
+  assert.deepStrictEqual(Object.keys(saved.methods.GET), ['exposure', 'note'], 'note is written last');
+  // a later heuristic save without notes keeps them
+  const again = { route: '/api/orders', methods: { GET: { exposure: 'public' }, POST: { exposure: 'authenticated' } }, reason: { source: 'heuristic', rule: 'x' } };
+  save(dir, again);
+  assert.strictEqual(JSON.parse(fs.readFileSync(path.join(dir, '.route.json'), 'utf8')).methods.POST.note, 'creates an order');
+  // findings carry the note
+  const r = check(root);
+  const f = r.findings.find((x) => x.file === 'app/api/orders/route.ts' && x.type === 'auth-not-found');
+  assert.ok(f && /POST: creates an order/.test(f.note));
+  assert.ok(/note: .*creates an order/.test(require('../src/check').format(r)));
+  assert.ok(/Note recorded for this route/.test(formatGithub(r)));
+  // validation and secret scan apply
+  assert.strictEqual(save(dir, { ...policy, methods: { GET: { exposure: 'public', note: 'x'.repeat(301) } } }).code, 2);
+  assert.strictEqual(save(dir, { ...policy, methods: { GET: { exposure: 'public', note: 'token ghp_' + 'a'.repeat(36) } } }).code, 2);
+});
+
+test('--base that cannot be used fails loudly instead of skipping the comparison', () => {
+  const { formatGithub } = require('../src/check');
+  const root = tmp();
+  put(root, 'app/api/orders/route.ts', 'export async function GET(){ await getServerSession(); }');
+  put(root, 'app/api/orders/.route.json', JSON.stringify({ version: 1, route: '/api/orders', methods: { GET: { exposure: 'authenticated' } } }));
+  for (const bad of ['no-such-ref', '--no-index', '-p', 'a b']) {
+    const r = check(root, { base: bad });
+    assert.ok(r.findings.some((f) => f.type === 'base-unresolved'), `${bad} is reported`);
+    assert.strictEqual(r.exitCode, 1, `${bad} fails even in annotate mode`);
+  }
+  assert.ok(/^::error title=base-unresolved::/m.test(formatGithub(check(root, { base: 'no-such-ref' }))));
+  assert.ok(!check(root).findings.some((f) => f.type === 'base-unresolved'), 'no --base means no comparison and no finding');
+  spawnSync('git', ['init'], { cwd: root });
+  spawnSync('git', ['config', 'user.email', 't@example.com'], { cwd: root });
+  spawnSync('git', ['config', 'user.name', 'T'], { cwd: root });
+  spawnSync('git', ['add', '.'], { cwd: root });
+  spawnSync('git', ['commit', '-m', 'init'], { cwd: root });
+  assert.ok(!check(root, { base: 'HEAD' }).findings.some((f) => f.type === 'base-unresolved'), 'a real ref works');
+});

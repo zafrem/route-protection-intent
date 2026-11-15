@@ -7,6 +7,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). The plugin name 
 Refocused on recording protection intent and catching drift from it.
 
 - `check`: `auth-removed` (an authentication check present at `--base` is gone from a route whose sidecar says it is protected) and `auth-not-found` (no check visible in the route code, unless `enforcement.via` names an external control).
+- Optional per-method `note` (up to 300 characters): kept across re-saves and printed next to findings for that route.
+- `check --base`: an invalid or unresolvable ref (typo, shallow clone) now reports `base-unresolved` and exits 1 instead of silently skipping the comparison; refs starting with `-` are refused.
+- Repo hygiene: `.gitignore` (including `compile` output that lists admin paths) and `"private": true` so the repo cannot be published to npm by accident.
 - `check --format github`: findings as pull-request annotations. New `examples/github-action/security-sidecar.yml`.
 - New positioning: a tool for documenting protection intent per route, so that even if the AI misses something it can still be caught.
 - Removed, in favour of Claude Code's `/security-review` and your own scanners: the secure-coding guidelines (`guidelines/`, `adapters/`, the `secure-functions` skill, the session-start reminder and the `guidelines` config option), the risky-code lint and its suppressions, and the per-handler `Input:` guidance lines.

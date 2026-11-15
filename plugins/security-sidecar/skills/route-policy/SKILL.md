@@ -28,6 +28,7 @@ A hook runs `analyze` whenever you write or edit a route file and passes you its
 - Prefer the conservative side. When unsure, `authenticated` or `unclassified` beats `public`.
 - Never put keys, tokens, passwords or connection strings in any field, including `notes`.
 - Never edit route source code for this. Touch only sidecars.
+- Add a method `note` only when the user gives a reason, as one short plain sentence. Do not invent one, and never put a secret in it.
 - Do not overwrite a person's edits. `save` already preserves `notes` and user-chosen values, so do not delete or recreate a sidecar by hand.
 - Add `cache`, `indexing` or `rateLimit` only when the user states them or `analyze` suggested them.
 - Large quoted JSON on the command line: write it to a temp file and pass `--policy @file`.

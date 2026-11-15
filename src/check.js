@@ -11,7 +11,8 @@ const NETWORK_RESTRICTIONS = ['ip-allowlist', 'mtls'];
 const EXPOSURE_RANK = { unclassified: 0, public: 1, authenticated: 2, internal: 3 };
 
 
-const SAFE_REF = /^[A-Za-z0-9_./~^-]+$/;
+// No leading '-', so the value can never be read by git as an option.
+const SAFE_REF = /^(?!-)[A-Za-z0-9_./~^-]+$/;
 function gitShow(root, base, rel) {
   if (!base || !SAFE_REF.test(base)) return null;
   const g = spawnSync('git', ['show', `${base}:./${rel}`], { cwd: root, encoding: 'utf8' });
@@ -124,9 +125,22 @@ function repoPrefix(root) {
   return g.status === 0 ? g.stdout.trim() : '';
 }
 
+// Why `--base` cannot be used, or null when it can. Silently skipping the comparison would make a
+// pipeline look green while the removed-check and downgrade findings do nothing.
+function baseProblem(root, base) {
+  if (!SAFE_REF.test(base)) return `--base "${base}" is not a valid git ref`;
+  const g = spawnSync('git', ['rev-parse', '--verify', '--quiet', `${base}^{commit}`], { cwd: root, encoding: 'utf8' });
+  if (g.status !== 0) return `--base "${base}" cannot be resolved here (typo, missing fetch, or a shallow clone: use fetch-depth: 0). No comparison was made`;
+  return null;
+}
+
 function check(root = process.cwd(), { strict = false, base } = {}) {
   const config = R.loadConfig(root);
   const findings = [];
+  if (base !== undefined) {
+    const problem = baseProblem(root, String(base));
+    if (problem) { findings.push({ type: 'base-unresolved', file: '', message: problem }); base = undefined; }
+  }
   const allFiles = [];
   const expected = new Set();   // sidecars that should exist
   const routeFilesBySidecar = new Map();
@@ -183,8 +197,17 @@ function check(root = process.cwd(), { strict = false, base } = {}) {
   const prot = protectedRoutes(docs, config.adminPaths);
   if (prot.length) for (const rel of allFiles) findings.push(...scanFile(root, rel, prot));
 
+  // Show the person's reason next to a finding, so a reviewer sees why the route was set up this way.
+  const sidecarOfRoute = new Map();
+  for (const [sc, files] of routeFilesBySidecar) for (const rf of files) sidecarOfRoute.set(rf, sc);
+  for (const f of findings) {
+    const doc = docs.get(f.file) || docs.get(sidecarOfRoute.get(f.file));
+    const notes = doc ? Object.entries(doc.methods).filter(([, p]) => p.note).map(([m, p]) => `${m}: ${p.note}`) : [];
+    if (notes.length) f.note = notes.join('; ');
+  }
+
   const enforcing = (f) => docs.get(f.file)?.mode === 'enforce';
-  const failing = findings.filter((f) => strict || enforcing(f));
+  const failing = findings.filter((f) => strict || enforcing(f) || f.type === 'base-unresolved');
   findings.sort((a, b) => (a.file < b.file ? -1 : a.file > b.file ? 1 : a.type < b.type ? -1 : 1));
   return {
     ok: failing.length === 0, exitCode: failing.length ? 1 : 0, strict,
@@ -194,7 +217,7 @@ function check(root = process.cwd(), { strict = false, base } = {}) {
 }
 
 function format(r) {
-  const lines = r.findings.map((f) => `  [${f.type}] ${f.file}: ${f.message}`);
+  const lines = r.findings.map((f) => `  [${f.type}] ${f.file ? `${f.file}: ` : ''}${f.message}${f.note ? `\n      note: ${f.note}` : ''}`);
   const head = `security-sidecar check: ${r.routes} route(s), ${r.sidecars} sidecar(s) - ${r.summary}`;
   const tail = (r.findings.length && !r.strict && r.exitCode === 0
     ? '\n(annotate mode: warnings only, exit 0. Use --strict to fail on findings.)' : '');
@@ -202,10 +225,10 @@ function format(r) {
 }
 
 // GitHub Actions annotations: show findings on the pull request's changed lines.
-const ERROR_TYPES = new Set(['auth-removed', 'policy-downgrade']);
+const ERROR_TYPES = new Set(['auth-removed', 'policy-downgrade', 'base-unresolved']);
 function formatGithub(r) {
   const esc = (t) => String(t).replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
-  return r.findings.map((f) => `::${ERROR_TYPES.has(f.type) ? 'error' : 'warning'} file=${(r.pathPrefix || '') + f.file}${f.line ? `,line=${f.line}` : ''},title=${f.type}::${esc(f.message)}`).join('\n');
+  return r.findings.map((f) => `::${ERROR_TYPES.has(f.type) ? 'error' : 'warning'} ${f.file ? `file=${(r.pathPrefix || '') + f.file}${f.line ? `,line=${f.line}` : ''},` : ''}title=${f.type}::${esc(f.message + (f.note ? ` Note recorded for this route: ${f.note}` : ''))}`).join('\n');
 }
 
 module.exports = { check, format, formatGithub, diffSidecar };

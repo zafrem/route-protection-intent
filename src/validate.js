@@ -22,6 +22,7 @@ function check(s, v, p, root, errs) {
   }
   if (typeof v === 'string') {
     if (s.minLength && v.length < s.minLength) errs.push(`${p}: too short`);
+    if (s.maxLength !== undefined && v.length > s.maxLength) errs.push(`${p}: too long (max ${s.maxLength})`);
     if (s.pattern && !new RegExp(s.pattern).test(v)) errs.push(`${p}: does not match ${s.pattern}`);
   }
   if (typeof v === 'number' && s.minimum !== undefined && v < s.minimum) errs.push(`${p}: must be >= ${s.minimum}`);
