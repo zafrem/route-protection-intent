@@ -4,6 +4,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Releases up to 0
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-11-15
+
 - **Breaking rename.** Everything that was called `security-sidecar` is now `route-protection-intent`: the plugin and its slash commands (`/route-protection-intent:check`, and so on), the CLI command and `bin/` file, the plugin folder, the config file (`.route-protection-intent.config.json`; an old `.security-sidecar.config.json` is no longer read, so move your `adminPaths`, `authPatterns` and `verify.samples`), the generated files (`route-protection-intent.nginx.conf`, `.nextjs.js`, `._headers`), the example workflow and its `ROUTE_PROTECTION_INTENT_REF` variable. `.route.json` sidecars are unchanged. Reinstall with `/plugin install route-protection-intent --marketplace zafrem/route-protection-intent`.
 
 ## [0.1.3] - 2026-11-15

@@ -11,7 +11,7 @@
 /plugin install route-protection-intent --marketplace zafrem/route-protection-intent
 ```
 
-This plugin is installed straight from the `zafrem/route-protection-intent` GitHub repository (it is its own marketplace). It is not listed in Anthropic's official plugin directory, so Claude Code treats it like any third-party plugin: read the code before you install it. Current release: `v0.1.3`.
+This plugin is installed straight from the `zafrem/route-protection-intent` GitHub repository (it is its own marketplace). It is not listed in Anthropic's official plugin directory, so Claude Code treats it like any third-party plugin: read the code before you install it. Current release: `v0.1.4`.
 
 Requires Node 18 or newer. The CLI is bundled in this plugin; nothing else is installed.
 

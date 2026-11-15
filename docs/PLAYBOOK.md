@@ -146,7 +146,7 @@ Git pre-commit hook (`.git/hooks/pre-commit`, make it executable):
 node plugins/route-protection-intent/cli/bin/route-protection-intent.js check . --strict || exit 1
 ```
 
-GitHub Actions on pull requests: copy `examples/github-action/route-protection-intent.yml` into your own project. It checks out full history, clones route-protection-intent at the release in `ROUTE_PROTECTION_INTENT_REF` (`v0.1.3`), and runs
+GitHub Actions on pull requests: copy `examples/github-action/route-protection-intent.yml` into your own project. It checks out full history, clones route-protection-intent at the release in `ROUTE_PROTECTION_INTENT_REF` (`v0.1.4`), and runs
 ```bash
 node "$RUNNER_TEMP/route-protection-intent/bin/route-protection-intent.js" check . --base "origin/$BASE_BRANCH" --format github --strict
 ```
