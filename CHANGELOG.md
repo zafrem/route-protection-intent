@@ -4,13 +4,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). The plugin name 
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-15
+
 - `verify`: probes a running app without credentials and compares each answer with the recorded intent (a protected route answering 2xx is a gap). Safe methods only by default (`--include-mutating` opts in), non-local targets need `--allow-remote`, no credentials are ever sent, and 404/5xx are inconclusive. New `/security-sidecar:verify` command and `verify.samples` config.
 - `report`: a route inventory (one row per route and method: recorded exposure, gate, `enforcement.via`, who decided it, whether an authentication check is visible in the code) with gaps, as table, Markdown, JSON or CSV. New `/security-sidecar:report` command.
 - `docs/SECURITY-ARCHITECTURE.md`: guidance on the architecture that makes recorded intent hold, how each sidecar field maps to a layer, what the tool cannot tell you, and a review checklist.
 
 - Many more languages: routes registered in code are now read for JS/TS (Express-style, NestJS), Python (Flask, FastAPI, Django), Go, Java/Kotlin (Spring, JAX-RS, Ktor), C#, Ruby, PHP, Rust, Elixir, Swift and Dart, plus SvelteKit and Nuxt file routes. A sidecar can list many endpoints with `METHOD /path` keys. A broader authentication-pattern list, and `authPatterns` in the config for your own. Tested on small snippets only, not real projects; router mount prefixes are not resolved.
 - `spec`: compares an OpenAPI JSON document with the recorded sidecars (`mismatch`, `not-recorded`, `unclassified`, `not-in-spec`). New `/security-sidecar:spec` command. YAML is not read.
-- `action.yml`: a composite GitHub Action (`uses: zafrem/security-sidecar@<tag>`) that runs `check` on a pull request. Available from the next tag; not yet listed on the GitHub Marketplace.
+- `action.yml`: a composite GitHub Action (`uses: zafrem/security-sidecar@<tag>`) that runs `check` on a pull request. Available from this tag.
 - `examples/sample-api` and a sample report in the README and the site.
 
 ## [0.1.0] - 2026-11-15

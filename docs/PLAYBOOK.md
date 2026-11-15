@@ -146,7 +146,7 @@ Git pre-commit hook (`.git/hooks/pre-commit`, make it executable):
 node plugins/security-sidecar/cli/bin/security-sidecar.js check . --strict || exit 1
 ```
 
-GitHub Actions on pull requests: copy `examples/github-action/security-sidecar.yml` into your own project. It checks out full history, clones security-sidecar at the release in `SECURITY_SIDECAR_REF` (`v0.1.0`), and runs
+GitHub Actions on pull requests: copy `examples/github-action/security-sidecar.yml` into your own project. It checks out full history, clones security-sidecar at the release in `SECURITY_SIDECAR_REF` (`v0.1.1`), and runs
 ```bash
 node "$RUNNER_TEMP/security-sidecar/bin/security-sidecar.js" check . --base "origin/$BASE_BRANCH" --format github --strict
 ```

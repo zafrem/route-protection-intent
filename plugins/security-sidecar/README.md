@@ -11,7 +11,7 @@
 /plugin install security-sidecar --marketplace zafrem/security-sidecar
 ```
 
-This plugin is installed straight from the `zafrem/security-sidecar` GitHub repository (it is its own marketplace). It is not listed in Anthropic's official plugin directory, so Claude Code treats it like any third-party plugin: read the code before you install it. Current release: `v0.1.0`.
+This plugin is installed straight from the `zafrem/security-sidecar` GitHub repository (it is its own marketplace). It is not listed in Anthropic's official plugin directory, so Claude Code treats it like any third-party plugin: read the code before you install it. Current release: `v0.1.1`.
 
 Requires Node 18 or newer. The CLI is bundled in this plugin; nothing else is installed.
 
