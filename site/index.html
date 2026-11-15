@@ -43,7 +43,6 @@ footer{margin-top:48px;color:var(--muted);font-size:.9rem}
   <img src="icon.png" alt="Route Protection Intent icon: a shield with a small tab beside it">
   <div>
     <h1>Route Protection Intent</h1>
-    <p class="tag">Plugin and CLI: <code>security-sidecar</code> · GitHub Action: Route Protection Check</p>
     <p class="tag">Documents the protection intent of each web route, so that even if the AI misses something, it can still be caught.</p>
     <div class="btns">
       <a class="btn primary" href="https://github.com/zafrem/route-protection-intent">View on GitHub</a>
@@ -72,14 +71,14 @@ footer{margin-top:48px;color:var(--muted);font-size:.9rem}
 </div>
 
 <h2>Catching a removed check</h2>
-<pre><code>$ security-sidecar check . --base origin/main --format github --strict
+<pre><code>$ route-protection-intent check . --base origin/main --format github --strict
 ::error file=app/api/orders/route.ts,title=auth-removed::an authentication
 check present at origin/main is gone from this route, but its sidecar
 says it must be protected. Restore it, or change the recorded intent</code></pre>
 <p style="color:var(--muted);font-size:.9rem">The finding shows up as an annotation on the pull request and fails the job. Detection is text matching for common patterns, so expect misses.</p>
 
 <h2>A sample report</h2>
-<pre><code>$ security-sidecar report examples/sample-api
+<pre><code>$ route-protection-intent report examples/sample-api
 ROUTE              METHOD  EXPOSURE       GATE  VIA  DECIDED BY  AUTH CHECK  GAPS
 /account/settings  GET     authenticated  -     -    user        yes         -
 /api/exports       GET     authenticated  -     -    heuristic   no          protected-no-auth-check
@@ -115,7 +114,7 @@ ROUTE              METHOD  EXPOSURE       GATE  VIA  DECIDED BY  AUTH CHECK  GAP
 
 <h2>What it is not</h2>
 <table>
-<tr><th></th><th>security-sidecar</th><th>Rule sets and linters</th></tr>
+<tr><th></th><th>route-protection-intent</th><th>Rule sets and linters</th></tr>
 <tr><td>Answers</td><td>Is the code doing what this route is meant to do?</td><td>Is this code written safely?</td></tr>
 <tr><td>Needs</td><td>A recorded intent per route</td><td>Rules or patterns</td></tr>
 <tr><td>Use for</td><td>Drift, removed checks, downgrades</td><td><code>/security-review</code>, Semgrep, ESLint security rules</td></tr>
@@ -123,14 +122,14 @@ ROUTE              METHOD  EXPOSURE       GATE  VIA  DECIDED BY  AUTH CHECK  GAP
 
 <h2>Install</h2>
 <pre><code>/plugin marketplace add zafrem/route-protection-intent
-/plugin install security-sidecar --marketplace zafrem/route-protection-intent</code></pre>
+/plugin install route-protection-intent --marketplace zafrem/route-protection-intent</code></pre>
 <p style="color:var(--muted);font-size:.9rem">Installed straight from GitHub (the repo is its own marketplace). It is not in Anthropic's official plugin directory, so read the code before installing. Current release: v0.1.3.</p>
-<p>Then check a project: <code>/security-sidecar:check</code>. The CLI is bundled and needs only Node 18+.</p>
+<p>Then check a project: <code>/route-protection-intent:check</code>. The CLI is bundled and needs only Node 18+.</p>
 
 <h2>Good to know</h2>
 <ul>
   <li>Enforcement output supports Nginx, Next.js and Cloudflare. Next.js is the only framework tested end to end. Routes are also read for JS/TS, Python, Go, Java/Kotlin, C#, Ruby, PHP, Rust, Elixir, Swift and Dart, but those patterns were checked on small snippets, not real projects, and router mount prefixes are not resolved.</li>
-  <li><code>security-sidecar spec openapi.json</code> compares an OpenAPI (JSON) document with the recorded protection and lists disagreements.</li>
+  <li><code>route-protection-intent spec openapi.json</code> compares an OpenAPI (JSON) document with the recorded protection and lists disagreements.</li>
   <li>Authentication detection and the link scan are text matching, so expect misses and some false positives. If a check lives in middleware or a gateway, record it in <code>enforcement.via</code>.</li>
   <li><code>reason.source: user</code> is a convention an agent could forge, so review sidecar changes in pull requests.</li>
   <li>This is one layer, not a security architecture. See the <a href="https://github.com/zafrem/route-protection-intent/blob/main/docs/SECURITY-ARCHITECTURE.md">architecture guide</a> for what has to exist underneath: central authentication, per-record authorization, a separate admin plane and a test that fails when protection is removed.</li>

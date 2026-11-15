@@ -1,6 +1,6 @@
 ---
 name: route-policy
-description: Record the protection intent of a web route in a .route.json sidecar. Use when a security-sidecar hook reports that a route file was written or edited, or when the user asks to classify or document a route's exposure, caching or rate limiting.
+description: Record the protection intent of a web route in a .route.json sidecar. Use when a route-protection-intent hook reports that a route file was written or edited, or when the user asks to classify or document a route's exposure, caching or rate limiting.
 ---
 
 # Route policy

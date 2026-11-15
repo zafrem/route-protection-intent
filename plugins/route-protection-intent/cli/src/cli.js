@@ -28,13 +28,13 @@ function main(argv) {
   try {
     switch (cmd) {
       case 'analyze': {
-        if (!rest[0]) throw new Error('usage: security-sidecar analyze <file> [--methods GET,POST]');
+        if (!rest[0]) throw new Error('usage: route-protection-intent analyze <file> [--methods GET,POST]');
         const methods = flags.methods ? flags.methods.split(',').map((m) => m.trim().toUpperCase()) : undefined;
         out(require('./analyze').analyze(rest[0], { root: flags.root || process.cwd(), methods }));
         return 0;
       }
       case 'save': {
-        if (!rest[0]) throw new Error('usage: security-sidecar save <dir> --policy <json|@file|-> [--file <name>]');
+        if (!rest[0]) throw new Error('usage: route-protection-intent save <dir> --policy <json|@file|-> [--file <name>]');
         const r = require('./save').save(rest[0], readPolicy(flags.policy), { file: flags.file });
         const { code, ...body } = r; out(body);
         return code;
@@ -63,7 +63,7 @@ function main(argv) {
         }).catch((e) => { out({ ok: false, error: e.message }); return 2; });
       }
       case 'spec': {
-        if (!rest[0]) throw new Error('usage: security-sidecar spec <openapi.json> [root] [--prefix /api] [--format table|md|json|csv] [--strict]');
+        if (!rest[0]) throw new Error('usage: route-protection-intent spec <openapi.json> [root] [--prefix /api] [--format table|md|json|csv] [--strict]');
         const { compareSpec, format } = require('./spec');
         const r = compareSpec(path.resolve(rest[1] || process.cwd()), path.resolve(rest[0]), { prefix: flags.prefix, strict: !!flags.strict });
         process.stdout.write(format(r, flags.format || (flags.json ? 'json' : 'table')) + '\n');
@@ -75,7 +75,7 @@ function main(argv) {
         return code;
       }
       default:
-        process.stderr.write('usage: security-sidecar <analyze|save|check|report|verify|spec|compile> ...\n');
+        process.stderr.write('usage: route-protection-intent <analyze|save|check|report|verify|spec|compile> ...\n');
         return 64;
     }
   } catch (e) {

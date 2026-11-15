@@ -22,7 +22,7 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - name: Run security-sidecar check
+    - name: Run route-protection-intent check
       shell: bash
       env:
         INPUT_PATH: ${{ inputs.path }}
@@ -36,4 +36,4 @@ runs:
         args=("$INPUT_PATH" --format github)
         if [ -n "$base" ]; then args+=(--base "$base"); fi
         if [ "$INPUT_STRICT" = "true" ]; then args+=(--strict); fi
-        node "$ACTION_PATH/bin/security-sidecar.js" check "${args[@]}"
+        node "$ACTION_PATH/bin/route-protection-intent.js" check "${args[@]}"

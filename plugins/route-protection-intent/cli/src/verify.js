@@ -77,7 +77,7 @@ async function verify(root, opts = {}) {
     const url = new URL(p, base);
     if (delayMs && rows.length > 1) await new Promise((res) => setTimeout(res, delayMs));
     try {
-      const res = await fetchFn(url, { method, redirect: 'manual', headers: { 'user-agent': 'security-sidecar-verify', accept: '*/*' }, signal: AbortSignal.timeout(timeoutMs) });
+      const res = await fetchFn(url, { method, redirect: 'manual', headers: { 'user-agent': 'route-protection-intent-verify', accept: '*/*' }, signal: AbortSignal.timeout(timeoutMs) });
       try { await res.body?.cancel(); } catch { /* ignore */ }
       row.status = res.status;
       [row.result, row.note] = judge(r.exposure, res.status, res.headers.get('location'), url.pathname);

@@ -1,4 +1,4 @@
-# security-sidecar (Claude Code plugin)
+# route-protection-intent (Claude Code plugin)
 
 **Documents the protection intent of each web route, so that even if the AI misses something, it can still be caught.** Each route gets a `.route.json` sidecar; `check` flags code that drifts from it, such as an authentication check removed from a route that is meant to be protected. It is not a secure-coding rule set or a linter: use `/security-review` and your own scanners for that.
 
@@ -8,7 +8,7 @@
 
 ```
 /plugin marketplace add zafrem/route-protection-intent
-/plugin install security-sidecar --marketplace zafrem/route-protection-intent
+/plugin install route-protection-intent --marketplace zafrem/route-protection-intent
 ```
 
 This plugin is installed straight from the `zafrem/route-protection-intent` GitHub repository (it is its own marketplace). It is not listed in Anthropic's official plugin directory, so Claude Code treats it like any third-party plugin: read the code before you install it. Current release: `v0.1.3`.
@@ -21,11 +21,11 @@ Requires Node 18 or newer. The CLI is bundled in this plugin; nothing else is in
 | --- | --- |
 | Hook (`PostToolUse` on `Write` and `Edit`) | Runs route analysis on route files, and warns about links to admin routes in any edited file |
 | Skill `route-policy` | Saves clear classifications silently; asks you when unsure, for an admin gate, and before any link to a protected route is kept |
-| `/security-sidecar:check` | Finds missing, orphan, invalid and unclassified sidecars, exposed admin paths, and code that drifted from the recorded intent (`--base <git-ref>` also catches removed auth checks and downgrades) |
-| `/security-sidecar:report` | The route inventory: each route and method with its recorded protection, who decided it, whether an authentication check is visible in the code, and the gaps |
-| `/security-sidecar:verify` | Sends requests without credentials to a running local or staging app and compares each answer with the recorded protection (a protected route answering 200 is a gap) |
-| `/security-sidecar:spec` | Compares an OpenAPI (JSON) document with the recorded protection and lists mismatches |
-| `/security-sidecar:compile` | Opt-in: builds `routes-manifest.json` and an Nginx config from `mode: enforce` sidecars |
+| `/route-protection-intent:check` | Finds missing, orphan, invalid and unclassified sidecars, exposed admin paths, and code that drifted from the recorded intent (`--base <git-ref>` also catches removed auth checks and downgrades) |
+| `/route-protection-intent:report` | The route inventory: each route and method with its recorded protection, who decided it, whether an authentication check is visible in the code, and the gaps |
+| `/route-protection-intent:verify` | Sends requests without credentials to a running local or staging app and compares each answer with the recorded protection (a protected route answering 200 is a gap) |
+| `/route-protection-intent:spec` | Compares an OpenAPI (JSON) document with the recorded protection and lists mismatches |
+| `/route-protection-intent:compile` | Opt-in: builds `routes-manifest.json` and an Nginx config from `mode: enforce` sidecars |
 
 ## What it does not do
 

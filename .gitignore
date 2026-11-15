@@ -3,6 +3,6 @@ coverage/
 *.tgz
 # Output of `compile`. routes-manifest.json lists admin and internal paths, so never commit it.
 routes-manifest.json
-security-sidecar.nginx.conf
-security-sidecar.nextjs.js
-security-sidecar._headers
+route-protection-intent.nginx.conf
+route-protection-intent.nextjs.js
+route-protection-intent._headers

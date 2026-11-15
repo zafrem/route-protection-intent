@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/zafrem/route-protection-intent/schema/route.schema.json",
-  "title": "security-sidecar route sidecar",
+  "title": "route-protection-intent route sidecar",
   "type": "object",
   "additionalProperties": false,
   "required": ["version", "route", "methods"],

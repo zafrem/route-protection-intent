@@ -1,7 +1,5 @@
 # Route Protection Intent
 
-_Repository `route-protection-intent`. The Claude Code plugin and the command-line tool are both named `security-sidecar`; the GitHub Action is "Route Protection Check"._
-
 **Documents the protection intent of each web route, so that even if the AI misses something, it can still be caught.**
 
 Each route gets a small `.route.json` file next to its code that says what the route is meant to be: public, login-only, or internal. `check` compares that record with the actual code and warns, for example in a pull request, when an authentication check disappears from a route that is supposed to be protected.
@@ -41,12 +39,12 @@ Install in Claude Code (needs Node 18+):
 
 ```
 /plugin marketplace add zafrem/route-protection-intent
-/plugin install security-sidecar --marketplace zafrem/route-protection-intent
+/plugin install route-protection-intent --marketplace zafrem/route-protection-intent
 ```
 
 This plugin is installed straight from this GitHub repository (it is its own marketplace). It is not listed in Anthropic's official plugin directory, so Claude Code treats it like any third-party plugin: read the code before you install it. Current release: `v0.1.3`.
 
-Then run `/security-sidecar:check` in your project. Routes without a sidecar show up as `missing`; ask Claude to classify them. From then on, writing or editing a route file records its intent automatically: clear cases are saved silently, unclear ones ask you, and the default is the secured side.
+Then run `/route-protection-intent:check` in your project. Routes without a sidecar show up as `missing`; ask Claude to classify them. From then on, writing or editing a route file records its intent automatically: clear cases are saved silently, unclear ones ask you, and the default is the secured side.
 
 ## The three findings that matter most
 
@@ -60,7 +58,7 @@ Authentication detection is a text match for common patterns (`getServerSession`
 
 ## See every route at a glance
 
-`/security-sidecar:report` (or `security-sidecar report .`) prints an inventory of every route and method: what is recorded as public or authenticated, who decided it, whether an authentication check is visible in the code, and the gaps.
+`/route-protection-intent:report` (or `route-protection-intent report .`) prints an inventory of every route and method: what is recorded as public or authenticated, who decided it, whether an authentication check is visible in the code, and the gaps.
 
 ```
 ROUTE       METHOD  EXPOSURE       GATE  VIA  DECIDED BY  AUTH CHECK  GAPS
@@ -73,7 +71,7 @@ The output is sorted and has no timestamps, so you can commit it (`--format md >
 
 ## Sample report
 
-Generated from [`examples/sample-api`](examples/sample-api) (a small app with five routes): `security-sidecar report examples/sample-api`.
+Generated from [`examples/sample-api`](examples/sample-api) (a small app with five routes): `route-protection-intent report examples/sample-api`.
 
 ```
 ROUTE              METHOD  EXPOSURE       GATE  VIA  DECIDED BY  AUTH CHECK  GAPS
@@ -93,7 +91,7 @@ Add `--format md` to get a Markdown version you can commit. (Keep a committed in
 
 ## Verify a running app
 
-`security-sidecar verify --base-url http://localhost:3000` sends requests **without credentials** to a running app and compares each answer with the recorded intent:
+`route-protection-intent verify --base-url http://localhost:3000` sends requests **without credentials** to a running app and compares each answer with the recorded intent:
 
 ```
 ROUTE         METHOD  RECORDED       STATUS  RESULT  NOTE
@@ -107,13 +105,13 @@ A route recorded as protected that answers 200 is a real gap, found against the 
 - **Safe by default:** only GET, HEAD and OPTIONS are sent. POST, PUT, PATCH and DELETE are skipped unless you pass `--include-mutating`, because they can change data.
 - **Only your own systems:** it refuses any non-local address unless you pass `--allow-remote`. Point it at a local or staging app you own.
 - **No credentials, ever:** no cookies or tokens are sent. A 404, a 5xx or no response is reported as `inconclusive`, never as a pass, and `--strict` makes those fail too.
-- **Routes with parameters** (`/orders/[id]`) need sample values: `{ "verify": { "samples": { "id": "42" } } }` in `.security-sidecar.config.json`. Without one the route is `skipped`.
+- **Routes with parameters** (`/orders/[id]`) need sample values: `{ "verify": { "samples": { "id": "42" } } }` in `.route-protection-intent.config.json`. Without one the route is `skipped`.
 - **Exit code:** 1 if any gap is found.
 - **Limit:** it shows that an anonymous caller is refused. It does not show that one user cannot read another user's data; that needs test accounts, which this does not use.
 
 ## Compare with an API spec
 
-`security-sidecar spec openapi.json` compares an OpenAPI document (JSON) with the recorded sidecars. The spec says which operations need authentication; the sidecars say what you decided. Differences are listed:
+`route-protection-intent spec openapi.json` compares an OpenAPI document (JSON) with the recorded sidecars. The spec says which operations need authentication; the sidecars say what you decided. Differences are listed:
 
 - `mismatch`: recorded public but the spec requires authentication, or the spec documents none but the sidecar says protected.
 - `not-recorded`: in the spec, no sidecar. `not-in-spec`: recorded, but the spec does not list it.
@@ -127,7 +125,7 @@ Routes are found in two ways:
 - **By file path** (the URL comes from where the file sits): Next.js (`app/`, `pages/`), SvelteKit (`+server`), Nuxt (`server/api`), and `routes/`, `routers/` or `urls.py` in JS/TS, Python, Go and Java.
 - **By content** (routes are strings in the code): Express-style and NestJS, Flask, FastAPI and Django, Go (chi, gin, echo, net/http, gorilla), Spring, JAX-RS and Ktor, ASP.NET (controllers and minimal APIs), Rails and Sinatra, Laravel, Symfony and Slim, actix, Rocket and axum, Phoenix, Vapor, and Dart shelf_router. A file counts only if it looks like it uses one of these frameworks. One sidecar then lists many endpoints with keys such as `"GET /api/orders"`.
 
-Authentication patterns are known for each ecosystem; add your own regular expressions with `"authPatterns"` in `.security-sidecar.config.json`.
+Authentication patterns are known for each ecosystem; add your own regular expressions with `"authPatterns"` in `.route-protection-intent.config.json`.
 
 **Honest limits.** Only Next.js is tested end to end. The other patterns were checked against small snippets, not real projects, so expect misses and some false positives. Paths are taken as written: a router mount prefix or nested group is not known, which can make `verify` inconclusive. Central routing files (Rails `routes.rb`, Django `urls.py`, Phoenix) usually have no authentication check in the same file, so record `enforcement.via`.
 
@@ -148,11 +146,11 @@ jobs:
 
 Inputs: `path` (default `.`), `base` (default `origin/<target branch>`), `strict` (default `true`). The action exists from `v0.1.3` (earlier tags have an `action.yml` the Marketplace rejects); the copyable workflow below does the same without it.
 
-Or copy [`examples/github-action/security-sidecar.yml`](examples/github-action/security-sidecar.yml) into `.github/workflows/`. It runs `check --base origin/<target branch> --format github --strict`, so findings appear as annotations on the changed files and the job fails. The workflow clones this repo at the release in `SECURITY_SIDECAR_REF` (`v0.1.3`), so it works in any project. Move it to a newer tag on purpose. A tag can in principle be moved by the repo owner, so pin a full commit hash if you want the strictest setting. It was verified by running its steps against a separate test repository, not yet on a live pull request in another repo.
+Or copy [`examples/github-action/route-protection-intent.yml`](examples/github-action/route-protection-intent.yml) into `.github/workflows/`. It runs `check --base origin/<target branch> --format github --strict`, so findings appear as annotations on the changed files and the job fails. The workflow clones this repo at the release in `ROUTE_PROTECTION_INTENT_REF` (`v0.1.3`), so it works in any project. Move it to a newer tag on purpose. A tag can in principle be moved by the repo owner, so pin a full commit hash if you want the strictest setting. It was verified by running its steps against a separate test repository, not yet on a live pull request in another repo.
 
 `--base` needs full git history (`fetch-depth: 0`). If the ref cannot be used, `check` reports `base-unresolved` and fails instead of passing without a comparison.
 
-Locally, from a clone of this repo: `node bin/security-sidecar.js check <your-app> --base main`.
+Locally, from a clone of this repo: `node bin/route-protection-intent.js check <your-app> --base main`.
 
 ## What this does not do
 
@@ -183,7 +181,7 @@ Sidecar naming: `.route.json` where the directory is the route (Next.js app rout
 
 ### Admin pages
 
-A renamed admin path (for example `/ops-k7Qx92mVbT4nLw`) is not recognized as admin unless you list it in `.security-sidecar.config.json`:
+A renamed admin path (for example `/ops-k7Qx92mVbT4nLw`) is not recognized as admin unless you list it in `.route-protection-intent.config.json`:
 
 ```json
 { "adminPaths": ["/ops-k7Qx92mVbT4nLw", "/backoffice-*"] }
@@ -203,11 +201,11 @@ A hidden path is not protection. `check` warns about any admin or `internal` rou
 
 ### Quiet mode
 
-By default Claude mentions in one line when it saves a sidecar. To turn that off, set `"quiet": true` in `.security-sidecar.config.json`. Quiet mode silences only the success confirmation. Questions, refusals, `check` findings, link warnings and security problems in the code are always reported.
+By default Claude mentions in one line when it saves a sidecar. To turn that off, set `"quiet": true` in `.route-protection-intent.config.json`. Quiet mode silences only the success confirmation. Questions, refusals, `check` findings, link warnings and security problems in the code are always reported.
 
 ### Optional enforcement output
 
-`/security-sidecar:compile nginx|nextjs|cloudflare` turns `mode: enforce` sidecars into a manifest and config. Off by default.
+`/route-protection-intent:compile nginx|nextjs|cloudflare` turns `mode: enforce` sidecars into a manifest and config. Off by default.
 
 ### Security notes
 
@@ -219,7 +217,7 @@ By default Claude mentions in one line when it saves a sidecar. To turn that off
 
 ```
 npm test          # core + hook tests
-npm run bundle    # copy the CLI into plugins/security-sidecar/cli (commit the result)
+npm run bundle    # copy the CLI into plugins/route-protection-intent/cli (commit the result)
 ```
 
 Zero runtime dependencies; Node 18+. More on the [showcase site](https://zafrem.github.io/route-protection-intent/).

@@ -24,7 +24,7 @@ process.stdin.on('end', () => {
       // Not a route: make sure it does not link to an admin / gated / internal route.
       const hits = L.scanFile(root, rel, L.protectedRoutes(L.loadSidecars(root), config.adminPaths));
       if (hits.length) {
-        const msg = ['security-sidecar: this file references protected route(s). Remove the link. Only if the user confirms it should stay: ask them first with AskUserQuestion (say it makes the hidden URL visible to every visitor), then run `save` with "linkable": true and reason.source "user". Never edit the sidecar by hand and never decide this yourself, even if the user\'s request mentioned the link.',
+        const msg = ['route-protection-intent: this file references protected route(s). Remove the link. Only if the user confirms it should stay: ask them first with AskUserQuestion (say it makes the hidden URL visible to every visitor), then run `save` with "linkable": true and reason.source "user". Never edit the sidecar by hand and never decide this yourself, even if the user\'s request mentioned the link.',
           ...hits.map((h) => `- ${h.file}:${h.line} -> ${h.route}`)].join('\n');
         out(msg);
       }
@@ -32,11 +32,11 @@ process.stdin.on('end', () => {
     }
 
     const result = analyze(rel, { root });
-    const cli = path.join(__dirname, '..', 'cli', 'bin', 'security-sidecar.js');
+    const cli = path.join(__dirname, '..', 'cli', 'bin', 'route-protection-intent.js');
     const context = [
-      `security-sidecar: "${rel}" is a route file. Follow the route-policy skill.`,
+      `route-protection-intent: "${rel}" is a route file. Follow the route-policy skill.`,
       `CLI: node "${cli}" (run from the project root ${root})`,
-      ...(result.quiet ? ['QUIET MODE is on: after a successful save, do not mention the sidecar, the save or security-sidecar at all in your reply (not even a short summary line). Still report refusals, questions, link warnings, missing or weak gates, and real security problems in the code.'] : []),
+      ...(result.quiet ? ['QUIET MODE is on: after a successful save, do not mention the sidecar, the save or route-protection-intent at all in your reply (not even a short summary line). Still report refusals, questions, link warnings, missing or weak gates, and real security problems in the code.'] : []),
       'analyze result:',
       JSON.stringify(result, null, 2),
     ].join('\n');

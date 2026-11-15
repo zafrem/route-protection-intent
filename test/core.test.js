@@ -120,7 +120,7 @@ test('compile: enforce only, skips by via, refuses unclassified', () => {
 });
 
 test('plugin hook emits context for route files only, and the bundle is current', () => {
-  const hook = path.join(__dirname, '..', 'plugins', 'security-sidecar', 'hooks', 'post-tool-use.js');
+  const hook = path.join(__dirname, '..', 'plugins', 'route-protection-intent', 'hooks', 'post-tool-use.js');
   const root = tmp();
   put(root, 'app/api/login/route.ts', 'export async function POST(){}');
   put(root, 'lib/util.ts', 'export const x = 1');
@@ -129,7 +129,7 @@ test('plugin hook emits context for route files only, and the bundle is current'
   assert.match(hit.hookSpecificOutput.additionalContext, /"route": "\/api\/login"/);
   assert.strictEqual(run('lib/util.ts').stdout, '');
   for (const f of ['src/analyze.js', 'src/save.js', 'src/check.js', 'src/compile.js', 'src/routes.js', 'src/targets/nginx.js', 'src/targets/nextjs.js', 'src/targets/cloudflare.js', 'src/links.js', 'src/guidance.js', 'schema/route.schema.json']) {
-    assert.strictEqual(fs.readFileSync(path.join(__dirname, '..', 'plugins/security-sidecar/cli', f), 'utf8'), fs.readFileSync(path.join(__dirname, '..', f), 'utf8'), `${f} out of date; run npm run bundle`);
+    assert.strictEqual(fs.readFileSync(path.join(__dirname, '..', 'plugins/route-protection-intent/cli', f), 'utf8'), fs.readFileSync(path.join(__dirname, '..', f), 'utf8'), `${f} out of date; run npm run bundle`);
   }
 });
 
@@ -146,7 +146,7 @@ test('adminPaths config classifies renamed admin paths without prompting', () =>
 
 test('check warns when admin/internal routes lack a network restriction', () => {
   const root = tmp();
-  put(root, '.security-sidecar.config.json', JSON.stringify({ adminPaths: ['/ops-k7Qx92mVbT4nLw'] }));
+  put(root, '.route-protection-intent.config.json', JSON.stringify({ adminPaths: ['/ops-k7Qx92mVbT4nLw'] }));
   const w = (dir, route, via, exposure = 'authenticated') => {
     put(root, `app/${dir}/route.ts`, 'export function GET(){}');
     put(root, `app/${dir}/.route.json`, JSON.stringify({ version: 1, route, methods: { GET: { exposure } }, ...(via ? { enforcement: { via } } : {}) }));
@@ -207,7 +207,7 @@ test('check warns when an admin route has no gate', () => {
 });
 
 test('hook warns when a non-route file links to an admin route', () => {
-  const hook = path.join(__dirname, '..', 'plugins', 'security-sidecar', 'hooks', 'post-tool-use.js');
+  const hook = path.join(__dirname, '..', 'plugins', 'route-protection-intent', 'hooks', 'post-tool-use.js');
   const root = tmp();
   put(root, 'app/admin/route.ts', 'export function GET(){}');
   put(root, 'app/admin/.route.json', JSON.stringify({ version: 1, route: '/admin', methods: { GET: { exposure: 'authenticated' } } }));
@@ -242,9 +242,9 @@ test('quiet config is reported by analyze and defaults to off', () => {
   const root = tmp();
   put(root, 'app/api/x/route.ts', 'export async function POST(){}');
   assert.strictEqual(analyze('app/api/x/route.ts', { root }).quiet, false);
-  put(root, '.security-sidecar.config.json', JSON.stringify({ quiet: true }));
+  put(root, '.route-protection-intent.config.json', JSON.stringify({ quiet: true }));
   assert.strictEqual(analyze('app/api/x/route.ts', { root }).quiet, true);
-  put(root, '.security-sidecar.config.json', JSON.stringify({ quiet: 'yes' }));
+  put(root, '.route-protection-intent.config.json', JSON.stringify({ quiet: 'yes' }));
   assert.strictEqual(analyze('app/api/x/route.ts', { root }).quiet, false, 'only boolean true counts');
   // quiet never hides findings
   put(root, 'app/api/x/route.ts', 'export async function POST(){}');
@@ -252,12 +252,12 @@ test('quiet config is reported by analyze and defaults to off', () => {
 });
 
 test('hook carries the quiet-mode instruction only when quiet is on', () => {
-  const hook = path.join(__dirname, '..', 'plugins', 'security-sidecar', 'hooks', 'post-tool-use.js');
+  const hook = path.join(__dirname, '..', 'plugins', 'route-protection-intent', 'hooks', 'post-tool-use.js');
   const root = tmp();
   put(root, 'app/api/x/route.ts', 'export async function POST(){}');
   const run = () => JSON.parse(spawnSync('node', [hook], { input: JSON.stringify({ cwd: root, tool_input: { file_path: path.join(root, 'app/api/x/route.ts') } }), encoding: 'utf8' }).stdout).hookSpecificOutput.additionalContext;
   assert.ok(!/QUIET MODE/.test(run()));
-  put(root, '.security-sidecar.config.json', JSON.stringify({ quiet: true }));
+  put(root, '.route-protection-intent.config.json', JSON.stringify({ quiet: true }));
   assert.match(run(), /QUIET MODE is on/);
 });
 
@@ -498,7 +498,7 @@ test('report: one row per route and method, with gaps, deterministic, several fo
 test('report command runs through the CLI and exits 1 only with --strict and gaps', () => {
   const root = tmp();
   put(root, 'app/api/x/route.ts', 'export async function GET(){}');
-  const cli = path.join(__dirname, '..', 'bin', 'security-sidecar.js');
+  const cli = path.join(__dirname, '..', 'bin', 'route-protection-intent.js');
   const plain = spawnSync('node', [cli, 'report', root], { encoding: 'utf8' });
   assert.strictEqual(plain.status, 0);
   assert.ok(/no-sidecar/.test(plain.stdout));
@@ -557,7 +557,7 @@ test('verify: probes a running app without credentials and compares with the rec
     assert.ok(!seen.some((x) => x.startsWith('POST ')), 'no POST was sent');
     assert.ok(seen.every((x) => x.endsWith('auth= cookie=')), 'no credentials are ever sent');
 
-    put(root, '.security-sidecar.config.json', JSON.stringify({ verify: { samples: { id: 42 } } }));
+    put(root, '.route-protection-intent.config.json', JSON.stringify({ verify: { samples: { id: 42 } } }));
     const withSamples = await verify(root, { baseUrl: base, includeMutating: true });
     assert.strictEqual(withSamples.rows.find((x) => x.route === '/api/orders/[id]').result, 'pass');
     assert.strictEqual(withSamples.rows.find((x) => x.route === '/api/posts' && x.method === 'POST').result, 'pass');
@@ -594,7 +594,7 @@ test('verify through the CLI: exit 1 on a gap, exit 2 on a refused remote target
     const root = tmp();
     put(root, 'app/api/x/route.ts', 'export async function GET(){}');
     put(root, 'app/api/x/.route.json', JSON.stringify({ version: 1, route: '/api/x', methods: { GET: { exposure: 'authenticated' } } }));
-    const cli = path.join(__dirname, '..', 'bin', 'security-sidecar.js');
+    const cli = path.join(__dirname, '..', 'bin', 'route-protection-intent.js');
     const run = (args) => new Promise((resolve) => { const c = require('child_process').spawn('node', [cli, ...args]); let out = ''; c.stdout.on('data', (d) => (out += d)); c.on('close', (code) => resolve({ code, out })); });
     const gap = await run(['verify', root, '--base-url', `http://127.0.0.1:${server.address().port}`]);
     assert.strictEqual(gap.code, 1);
@@ -688,7 +688,7 @@ test('code-registered routes are discovered by content, saved, checked and repor
 test('authPatterns in the config add project-specific auth signals', () => {
   const { hasAuthSignal } = require('../src/analyze');
   const root = tmp();
-  put(root, '.security-sidecar.config.json', JSON.stringify({ authPatterns: ['\\bcheckMyAcl\\(', '(', 5] }));
+  put(root, '.route-protection-intent.config.json', JSON.stringify({ authPatterns: ['\\bcheckMyAcl\\(', '(', 5] }));
   const config = R.loadConfig(root);
   assert.strictEqual(config.authRegexes.length, 1, 'invalid and non-string patterns are ignored');
   assert.strictEqual(hasAuthSignal('x = checkMyAcl(req)'), false);

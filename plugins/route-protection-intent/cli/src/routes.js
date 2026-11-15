@@ -55,7 +55,7 @@ function compilePatterns(list) {
 
 function loadConfig(root) {
   try {
-    const c = JSON.parse(fs.readFileSync(path.join(root, '.security-sidecar.config.json'), 'utf8'));
+    const c = JSON.parse(fs.readFileSync(path.join(root, '.route-protection-intent.config.json'), 'utf8'));
     const raw = (c.verify && c.verify.samples) || {};
     const samples = Object.fromEntries(Object.entries(raw).filter(([, v]) => typeof v === 'string' || typeof v === 'number'));
     return { include: c.include || [], exclude: c.exclude || [], adminPaths: c.adminPaths || [], quiet: c.quiet === true, samples, authRegexes: compilePatterns(c.authPatterns), root };

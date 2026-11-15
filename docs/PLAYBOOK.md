@@ -1,6 +1,6 @@
-# security-sidecar Playbook
+# route-protection-intent Playbook
 
-Practical steps for using security-sidecar. For how it works inside see [ARCHITECTURE.md](ARCHITECTURE.md).
+Practical steps for using route-protection-intent. For how it works inside see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 > **A sidecar records intent. It blocks nothing.** Annotate mode never protects a route by itself.
 
@@ -9,9 +9,9 @@ Practical steps for using security-sidecar. For how it works inside see [ARCHITE
 1. Install the plugin in Claude Code:
    ```
    /plugin marketplace add zafrem/route-protection-intent
-   /plugin install security-sidecar --marketplace zafrem/route-protection-intent
+   /plugin install route-protection-intent --marketplace zafrem/route-protection-intent
    ```
-2. Optional, in the project root, `.security-sidecar.config.json`:
+2. Optional, in the project root, `.route-protection-intent.config.json`:
    ```json
    {
      "adminPaths": ["/ops-k7Qx92mVbT4nLw", "/backoffice-*"],
@@ -32,7 +32,7 @@ Practical steps for using security-sidecar. For how it works inside see [ARCHITE
 1. You or the agent add or edit a route.
 2. The plugin classifies it. **Clear cases are saved silently.** Unclear ones ask you to choose secured, public, or leave unclassified.
 3. Review the new `.route.json` in the diff like any other file.
-4. Run `/security-sidecar:check` before you merge.
+4. Run `/route-protection-intent:check` before you merge.
 
 ## 3. Scenarios
 
@@ -78,12 +78,12 @@ Practical steps for using security-sidecar. For how it works inside see [ARCHITE
 ### G. Turning on enforcement (optional: Nginx, Next.js, Cloudflare)
 1. Classify everything first. `compile` refuses `unclassified` in enforce sidecars.
 2. Set `"mode": "enforce"` and `enforcement.via` (`api-gateway` or `ip-allowlist` for Nginx; `app-middleware` or `api-gateway` for Next.js; `waf`, `ip-allowlist` or `api-gateway` for Cloudflare) on the sidecars you want compiled.
-3. Run `/security-sidecar:compile <nginx|nextjs|cloudflare>`. Review the generated config (`security-sidecar.nginx.conf`, `security-sidecar.nextjs.js`, or `security-sidecar._headers`) before use; where methods differ, the strictest applies to the path.
+3. Run `/route-protection-intent:compile <nginx|nextjs|cloudflare>`. Review the generated config (`route-protection-intent.nginx.conf`, `route-protection-intent.nextjs.js`, or `route-protection-intent._headers`) before use; where methods differ, the strictest applies to the path.
 4. Add `routes-manifest.json` and the generated config to `.gitignore` and to your deploy exclusions. The manifest lists admin paths.
 
 ## 4a. Audit: the route inventory
 
-`/security-sidecar:report` (or `security-sidecar report .`) lists every route and method with its recorded protection:
+`/route-protection-intent:report` (or `route-protection-intent report .`) lists every route and method with its recorded protection:
 
 ```
 ROUTE       METHOD  EXPOSURE       GATE  VIA  DECIDED BY  AUTH CHECK  GAPS
@@ -95,17 +95,17 @@ ROUTE       METHOD  EXPOSURE       GATE  VIA  DECIDED BY  AUTH CHECK  GAPS
 - **Decided by:** `user` means a person confirmed it. `heuristic` or `agent` means it was only guessed, so review those first.
 - **Auth check:** whether the route code shows an authentication check (a text match for common patterns). It is not proof, and it is the same for every method of a route.
 - **Gaps:** `no-sidecar`, `unclassified`, `orphan`, `schema`, `protected-no-auth-check` (recorded as protected, no check visible) and `public-with-auth-check` (recorded as public, but the code checks authentication: is it really public?).
-- **Audit trail:** commit the output (`security-sidecar report . --format md > docs/route-inventory.md`). Rows are sorted and have no timestamps, so a pull request's diff shows exactly which route changed exposure.
+- **Audit trail:** commit the output (`route-protection-intent report . --format md > docs/route-inventory.md`). Rows are sorted and have no timestamps, so a pull request's diff shows exactly which route changed exposure.
 - **Formats:** `--format table|md|json|csv`. `--strict` exits 1 when any gap exists.
 - **Limit:** this is static. It does not contact the running app. To test that a protected route really refuses anonymous callers, use `verify` (next section).
 
 ## 4b. Verify a running app
 
-`/security-sidecar:verify --base-url http://localhost:3000` (or `security-sidecar verify . --base-url ...`) sends requests without credentials and compares the answers with the recorded intent.
+`/route-protection-intent:verify --base-url http://localhost:3000` (or `route-protection-intent verify . --base-url ...`) sends requests without credentials and compares the answers with the recorded intent.
 
 1. Start the app locally or use a staging environment you own. Non-local addresses are refused unless you pass `--allow-remote`.
 2. Run it. Read the RESULT column: `pass` (as recorded), `gap` (an anonymous request was treated differently than recorded, most importantly a protected route answering 2xx), `inconclusive` (404, 5xx or no response: fix the URL or the server and run again) and `skipped`.
-3. Routes with parameters need sample values in `.security-sidecar.config.json`: `{ "verify": { "samples": { "id": "42" } } }`. Use values that exist in the test data, otherwise you get 404s.
+3. Routes with parameters need sample values in `.route-protection-intent.config.json`: `{ "verify": { "samples": { "id": "42" } } }`. Use values that exist in the test data, otherwise you get 404s.
 4. Only GET, HEAD and OPTIONS are sent. `--include-mutating` also sends POST, PUT, PATCH and DELETE with no body; use it only on a test system, because a route that is wrongly open could act on the request.
 5. No cookies or tokens are ever sent. A protected route that answers 400 or 422 is `inconclusive`: it was rejected before any authentication decision, which is itself worth checking.
 6. `--strict` fails on `inconclusive` as well; `--format md|json|csv` and `--delay <ms>` are available. In CI, start the app, run `verify` against it, and keep it separate from the pull-request check.
@@ -113,7 +113,7 @@ ROUTE       METHOD  EXPOSURE       GATE  VIA  DECIDED BY  AUTH CHECK  GAPS
 
 ## 4c. Compare with an OpenAPI spec
 
-`/security-sidecar:spec openapi.json` (or `security-sidecar spec openapi.json .`) compares each operation's `security` with the sidecars.
+`/route-protection-intent:spec openapi.json` (or `route-protection-intent spec openapi.json .`) compares each operation's `security` with the sidecars.
 
 1. Export your spec as JSON (YAML is not read).
 2. Run it. Rows: `match`, `mismatch` (the two disagree on whether authentication is required), `not-recorded`, `unclassified`, `not-in-spec`. An operation with `security: []` or an empty alternative `{}` counts as public.
@@ -135,20 +135,20 @@ Exit codes for `check`: **0** in annotate mode (warnings only), **1** with `--st
 
 Local or CI (from a checkout; the CLI needs only Node 18+):
 ```bash
-node plugins/security-sidecar/cli/bin/security-sidecar.js check . --strict
-node plugins/security-sidecar/cli/bin/security-sidecar.js check . --strict --base origin/main  # also flag policy downgrades
-node plugins/security-sidecar/cli/bin/security-sidecar.js check . --json   # machine-readable
+node plugins/route-protection-intent/cli/bin/route-protection-intent.js check . --strict
+node plugins/route-protection-intent/cli/bin/route-protection-intent.js check . --strict --base origin/main  # also flag policy downgrades
+node plugins/route-protection-intent/cli/bin/route-protection-intent.js check . --json   # machine-readable
 ```
 
 Git pre-commit hook (`.git/hooks/pre-commit`, make it executable):
 ```bash
 #!/bin/sh
-node plugins/security-sidecar/cli/bin/security-sidecar.js check . --strict || exit 1
+node plugins/route-protection-intent/cli/bin/route-protection-intent.js check . --strict || exit 1
 ```
 
-GitHub Actions on pull requests: copy `examples/github-action/security-sidecar.yml` into your own project. It checks out full history, clones security-sidecar at the release in `SECURITY_SIDECAR_REF` (`v0.1.3`), and runs
+GitHub Actions on pull requests: copy `examples/github-action/route-protection-intent.yml` into your own project. It checks out full history, clones route-protection-intent at the release in `ROUTE_PROTECTION_INTENT_REF` (`v0.1.3`), and runs
 ```bash
-node "$RUNNER_TEMP/security-sidecar/bin/security-sidecar.js" check . --base "origin/$BASE_BRANCH" --format github --strict
+node "$RUNNER_TEMP/route-protection-intent/bin/route-protection-intent.js" check . --base "origin/$BASE_BRANCH" --format github --strict
 ```
 so each finding shows as an annotation on the changed file (`auth-removed` and `policy-downgrade` as errors, the rest as warnings). Move the pin to a newer tag on purpose; a tag can in principle be moved, so use a full commit hash for the strictest setting. If the app is in a subfolder, replace `.` with that folder.
 
@@ -192,6 +192,6 @@ so each finding shows as an annotation on the changed file (`auth-removed` and `
 ```bash
 npm test           # unit, hook and bundle-freshness tests
 npm run bundle     # after changing src/ or schema/, copy into the plugin; commit the result
-claude plugin validate plugins/security-sidecar   # CI runs this and `claude plugin validate .` with a pinned Claude Code version
+claude plugin validate plugins/route-protection-intent   # CI runs this and `claude plugin validate .` with a pinned Claude Code version
 claude plugin validate .
 ```

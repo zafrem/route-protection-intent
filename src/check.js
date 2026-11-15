@@ -218,7 +218,7 @@ function check(root = process.cwd(), { strict = false, base } = {}) {
 
 function format(r) {
   const lines = r.findings.map((f) => `  [${f.type}] ${f.file ? `${f.file}: ` : ''}${f.message}${f.note ? `\n      note: ${f.note}` : ''}`);
-  const head = `security-sidecar check: ${r.routes} route(s), ${r.sidecars} sidecar(s) - ${r.summary}`;
+  const head = `route-protection-intent check: ${r.routes} route(s), ${r.sidecars} sidecar(s) - ${r.summary}`;
   const tail = (r.findings.length && !r.strict && r.exitCode === 0
     ? '\n(annotate mode: warnings only, exit 0. Use --strict to fail on findings.)' : '');
   return [head, ...lines].join('\n') + tail;

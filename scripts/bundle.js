@@ -3,7 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const root = path.join(__dirname, '..');
-const dest = path.join(root, 'plugins', 'security-sidecar', 'cli');
+const dest = path.join(root, 'plugins', 'route-protection-intent', 'cli');
 fs.rmSync(dest, { recursive: true, force: true });
 for (const d of ['bin', 'src', 'schema']) fs.cpSync(path.join(root, d), path.join(dest, d), { recursive: true });
 console.log('bundled core CLI ->', path.relative(root, dest));

@@ -1,4 +1,4 @@
-# security-sidecar Architecture
+# route-protection-intent Architecture
 
 How the pieces fit together. For requirements see [SRS.md](SRS.md); for day-to-day use see [PLAYBOOK.md](PLAYBOOK.md).
 
@@ -20,7 +20,7 @@ All logic lives in one dependency-free Node CLI plus one JSON schema. The Claude
  │        │  high confidence: save silently                     │
  │        │  low confidence / admin gate / linkable: ask user   │
  │        ▼                                                     │
- │  cli/bin/security-sidecar.js save ──► .route.json            │
+ │  cli/bin/route-protection-intent.js save ──► .route.json            │
  └──────────────────────────────────────────────────────────────┘
         later, locally / pre-commit / CI:   check   ·   compile (opt-in)
 ```
@@ -31,9 +31,9 @@ All logic lives in one dependency-free Node CLI plus one JSON schema. The Claude
 | --- | --- |
 | `schema/route.schema.json` | Single source of truth for the sidecar format |
 | `src/` | Core library and CLI (CommonJS, no dependencies) |
-| `bin/security-sidecar.js` | CLI entry point |
-| `plugins/security-sidecar/` | The Claude Code plugin (what users install) |
-| `plugins/security-sidecar/cli/` | **Generated copy** of `bin/`, `src/`, `schema/` (see 7) |
+| `bin/route-protection-intent.js` | CLI entry point |
+| `plugins/route-protection-intent/` | The Claude Code plugin (what users install) |
+| `plugins/route-protection-intent/cli/` | **Generated copy** of `bin/`, `src/`, `schema/` (see 7) |
 | `.claude-plugin/marketplace.json` | Lets users run `/plugin marketplace add` |
 | `scripts/bundle.js` | Copies the core into the plugin |
 | `examples/github-action/` | Ready-to-copy pull-request workflow that runs `check --base` |
@@ -155,7 +155,7 @@ Secure-coding rules, input validation checks and code linting are left to Claude
 
 ## 7. Packaging
 
-Plugin installs copy only `plugins/security-sidecar/`, so the CLI is bundled inside it (`cli/`). `npm run bundle` regenerates it from the root sources. A test fails if the copy is stale. Always edit `src/`, never `plugins/.../cli/`.
+Plugin installs copy only `plugins/route-protection-intent/`, so the CLI is bundled inside it (`cli/`). `npm run bundle` regenerates it from the root sources. A test fails if the copy is stale. Always edit `src/`, never `plugins/.../cli/`.
 
 ## 8. Extension points
 

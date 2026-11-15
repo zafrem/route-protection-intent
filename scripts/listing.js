@@ -5,7 +5,7 @@
 const { execFileSync } = require('child_process');
 const path = require('path');
 const root = path.join(__dirname, '..');
-const plugin = require('../plugins/security-sidecar/.claude-plugin/plugin.json');
+const plugin = require('../plugins/route-protection-intent/.claude-plugin/plugin.json');
 const market = require('../.claude-plugin/marketplace.json');
 const entry = market.plugins.find((p) => p.name === plugin.name);
 
@@ -27,6 +27,6 @@ console.log(JSON.stringify({
   description: entry.description,
   author: plugin.author,
   category: entry.category,
-  source: { source: 'git-subdir', url, path: 'plugins/security-sidecar', ref: tag, sha },
+  source: { source: 'git-subdir', url, path: 'plugins/route-protection-intent', ref: tag, sha },
   homepage: plugin.homepage,
 }, null, 2));

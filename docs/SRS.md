@@ -1,10 +1,10 @@
-# security-sidecar Software Requirements Specification (SRS)
+# route-protection-intent Software Requirements Specification (SRS)
 
 Nov 4, 2026 · @Mark
 
 ## 1. Overview
 
-security-sidecar records the protection intent of each web route in a `.route.json` sidecar file next to the code, whenever an AI coding agent creates or changes a route. By default it only records; it enforces nothing.
+route-protection-intent records the protection intent of each web route in a `.route.json` sidecar file next to the code, whenever an AI coding agent creates or changes a route. By default it only records; it enforces nothing.
 
 ### 1.1 Purpose
 
@@ -50,7 +50,7 @@ All logic lives in one core CLI and one schema. The Claude Code plugin is an ada
 | --- | --- | --- |
 | Core CLI | Runs `analyze`, `save`, `compile` and `check`. Every output is JSON | `src/` |
 | Schema | Single source of truth for `.route.json` | `schema/route.schema.json` |
-| Claude Code adapter | Hook (detection), skill (questioning rules), slash commands (entry points) | `plugins/security-sidecar/` |
+| Claude Code adapter | Hook (detection), skill (questioning rules), slash commands (entry points) | `plugins/route-protection-intent/` |
 | Marketplace manifest | File that lets users register with `/plugin marketplace add` | `.claude-plugin/marketplace.json` |
 | Target converters | Turn the manifest into Nginx config (opt-in; Next.js middleware later) | `src/targets/` |
 | Future adapters | Guidance and call instructions for Codex and agy | `adapters/` |
@@ -58,9 +58,9 @@ All logic lives in one core CLI and one schema. The Claude Code plugin is an ada
 ### 2.2 Repository layout
 
 ```text
-security-sidecar/
+route-protection-intent/
 ├─ .claude-plugin/marketplace.json
-├─ plugins/security-sidecar/
+├─ plugins/route-protection-intent/
 │  ├─ .claude-plugin/plugin.json
 │  ├─ hooks/hooks.json
 │  ├─ skills/
@@ -147,7 +147,7 @@ The must-have features of v1 (P0) are detection, classification suggestions, que
 | ID | Requirement | Priority |
 | --- | --- | --- |
 | FR-1.1 | The hook runs `analyze` only when the path of a written or edited file matches a route pattern (`app/**/route.ts`, `pages/**`, `routers/**`, `routes/**`, `urls.py` and so on). | P0 |
-| FR-1.2 | Patterns can be added or excluded in `.security-sidecar.config.json`. | P1 |
+| FR-1.2 | Patterns can be added or excluded in `.route-protection-intent.config.json`. | P1 |
 | FR-1.3 | `check` reports the sidecar of a deleted or renamed route as an orphan. | P1 |
 
 ### 4.2 Classification suggestions
@@ -161,10 +161,10 @@ The must-have features of v1 (P0) are detection, classification suggestions, que
 | FR-2.5 | Adjust confidence using authentication signals in the source (session checks, middleware decorators). | P2 |
 | FR-2.7 | Every `analyze` result includes `guidance`: framework-specific implementation steps for the suggested exposure (public: caching, metadata, sitemap for SEO; secured: auth check, `no-store`, `noindex`, rate limiting; internal: network restriction). Text only; the tool never edits route source. | P0 |
 | FR-2.8 | **Removed.** Input-handling checklist in `analyze` guidance. Use `/security-review` and your own scanners. | - |
-| FR-2.9 | `quiet: true` in `.security-sidecar.config.json` (default off) silences only the confirmation line after a successful save. `analyze` reports `quiet`, and the hook repeats the instruction in its context. Refusals, questions, `check` findings, link warnings and code security problems are never silenced. | P1 |
+| FR-2.9 | `quiet: true` in `.route-protection-intent.config.json` (default off) silences only the confirmation line after a successful save. `analyze` reports `quiet`, and the hook repeats the instruction in its context. Refusals, questions, `check` findings, link warnings and code security problems are never silenced. | P1 |
 | FR-2.11 | **Removed.** Session-start security reminder and the `guidelines` config option. | - |
 | FR-2.10 | **Removed.** Common secure-coding guidelines and their generated adapters. Use `/security-review` and your own scanners. | - |
-| FR-2.6 | `adminPaths` in `.security-sidecar.config.json` lists route prefixes (`*` matches within one segment) that are treated like `/admin`: suggested as `authenticated`, `no-store`, `noindex` with `high` confidence, so renamed admin paths do not prompt. | P1 |
+| FR-2.6 | `adminPaths` in `.route-protection-intent.config.json` lists route prefixes (`*` matches within one segment) that are treated like `/admin`: suggested as `authenticated`, `no-store`, `noindex` with `high` confidence, so renamed admin paths do not prompt. | P1 |
 
 ### 4.3 User questions
 
@@ -200,7 +200,7 @@ The must-have features of v1 (P0) are detection, classification suggestions, que
 | FR-5.1h | With `--base <git-ref>`, report `auth-removed` when an authentication signal present in the route source at that ref is gone and the sidecar still says the route is protected. | P0 |
 | FR-5.5 | `report` lists one row per route and method with the recorded exposure, gate, `enforcement.via`, `reason.source` and whether an authentication check is visible in the route code, and flags gaps (`no-sidecar`, `orphan`, `schema`, `unclassified`, `protected-no-auth-check`, `public-with-auth-check`). Output is sorted and has no timestamps, in table, Markdown, JSON or CSV. Exit 0, or 1 with `--strict` when gaps exist. It is static and never contacts a running app. | P1 |
 | FR-1.4 | Files that are not found by path are route files when they contain a framework marker and at least one literal route (JS/TS, Python, Go, Java/Kotlin, C#, Ruby, PHP, Rust, Elixir, Swift, Dart). Their sidecar lists endpoints under `METHOD /path` method keys. Vendor and build directories are skipped. | P1 |
-| FR-1.5 | `authPatterns` in `.security-sidecar.config.json` adds regular expressions that count as an authentication check (invalid or over-long ones are ignored). | P1 |
+| FR-1.5 | `authPatterns` in `.route-protection-intent.config.json` adds regular expressions that count as an authentication check (invalid or over-long ones are ignored). | P1 |
 | FR-5.7 | `spec <openapi.json>` compares each operation's effective `security` with the recorded exposure and reports `match`, `mismatch`, `not-recorded`, `unclassified` and `not-in-spec`, with table, Markdown, JSON or CSV output. JSON only. Exit 1 on a mismatch, or with `--strict` on unrecorded or unclassified routes. Documents only; it never contacts a running app. | P1 |
 | FR-5.6 | `verify --base-url <url>` sends requests without credentials to a running app and compares each answer with the recorded exposure: a protected route answering 2xx, or a public route answering 401/403, is a `gap`; 404, 5xx, other client errors and no response are `inconclusive` and never a pass. Only `GET`/`HEAD`/`OPTIONS` are sent unless `--include-mutating`; non-loopback targets need `--allow-remote`; no cookies, tokens or bodies are sent. Dynamic routes use `verify.samples`. Exit 1 on a gap (and on `inconclusive` with `--strict`). | P1 |
 | FR-5.1j | If `--base` is given but the ref is invalid or cannot be resolved, `check` reports `base-unresolved` and exits 1 even in annotate mode. It never skips the comparison silently. A ref starting with `-` is rejected. | P0 |
@@ -225,10 +225,10 @@ The CLI has four subcommands that each print JSON. The plugin connects them to C
 
 | Command | Input | Output | Exit code |
 | --- | --- | --- | --- |
-| `security-sidecar analyze <file>` | Route file path; optional `--methods GET,POST` | Route, methods, suggestion, confidence, `needsUserInput`, options | 0 |
-| `security-sidecar save <dir> --policy <json>` | Target directory and a policy object | Path written and validation result | 0 on success; 2 on schema or secret rejection |
-| `security-sidecar check [root] [--strict] [--json]` | Project root | List of findings | 0 in `annotate`; 1 on violation in `enforce` or `--strict` |
-| `security-sidecar compile [root] --target <nginx\|nextjs>` | Project root and target | Manifest path, target file path, skipped entries | 0 on success; 1 if `unclassified` remains in `enforce` files |
+| `route-protection-intent analyze <file>` | Route file path; optional `--methods GET,POST` | Route, methods, suggestion, confidence, `needsUserInput`, options | 0 |
+| `route-protection-intent save <dir> --policy <json>` | Target directory and a policy object | Path written and validation result | 0 on success; 2 on schema or secret rejection |
+| `route-protection-intent check [root] [--strict] [--json]` | Project root | List of findings | 0 in `annotate`; 1 on violation in `enforce` or `--strict` |
+| `route-protection-intent compile [root] --target <nginx\|nextjs>` | Project root and target | Manifest path, target file path, skipped entries | 0 on success; 1 if `unclassified` remains in `enforce` files |
 
 ### 5.2 `analyze` output
 
@@ -251,10 +251,10 @@ When `confidence` is `low`, `needsUserInput` is `true` and `options` holds 2 or 
 | --- | --- | --- |
 | Hook | `hooks/hooks.json` | PostToolUse on Write and Edit. If the path matches a route pattern, run `analyze` and return the JSON to Claude as context |
 | Skill | `skills/route-policy/SKILL.md` | With `high` confidence call `save` silently; with `low` ask the user with 2 or 3 options via AskUserQuestion; never write secret values; respect `mode` |
-| Slash command | `commands/check.md` | `/security-sidecar:check` runs `check` and summarizes findings |
-| Slash command | `commands/compile.md` | `/security-sidecar:compile` runs `compile` for a chosen target |
+| Slash command | `commands/check.md` | `/route-protection-intent:check` runs `check` and summarizes findings |
+| Slash command | `commands/compile.md` | `/route-protection-intent:compile` runs `compile` for a chosen target |
 | Plugin manifest | `.claude-plugin/plugin.json` | Name, version, description, component paths |
-| Marketplace manifest | `.claude-plugin/marketplace.json` | Lets users run `/plugin marketplace add <owner>/security-sidecar` |
+| Marketplace manifest | `.claude-plugin/marketplace.json` | Lets users run `/plugin marketplace add <owner>/route-protection-intent` |
 
 The CLI is bundled inside the plugin directory and called by the hook and commands through the plugin root path, so users install nothing separately.
 
@@ -307,7 +307,7 @@ Still open:
 
 1. **M1.** Schema, `analyze` and `save` working against a Next.js example.
 2. **M2.** `check` with the annotate and strict behaviors.
-3. **M3.** Claude Code plugin wrapper (hook, skill, commands), tested locally with `/plugin marketplace add ./security-sidecar`.
+3. **M3.** Claude Code plugin wrapper (hook, skill, commands), tested locally with `/plugin marketplace add ./route-protection-intent`.
 4. **M4.** `compile` for one target.
 5. **M5.** Public release and marketplace registration.
 6. **M6.** Codex and agy adapters.
