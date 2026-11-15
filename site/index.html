@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>security-sidecar</title>
-<meta name="description" content="A Claude Code plugin that records each web route's protection intent in a .route.json sidecar and reminds the agent of secure-coding rules. Annotate-only; it enforces nothing.">
+<meta name="description" content="Documents each web route's protection intent, so that even if the AI misses something, it can still be caught. Flags code that drifts from that intent. Annotate-only by default.">
 <link rel="icon" href="icon.png">
 <style>
 :root{--bg:#f7f9fb;--fg:#13202f;--muted:#53657a;--card:#fff;--line:#d9e1e8;--accent:#0f766e;--code:#eef3f7;--warn:#fff7d6}
@@ -41,7 +41,7 @@ footer{margin-top:48px;color:var(--muted);font-size:.9rem}
   <img src="icon.png" alt="security-sidecar icon: a shield with a small tab beside it">
   <div>
     <h1>security-sidecar</h1>
-    <p class="tag">Every new web route gets a decision: public or secured. The decision is recorded next to the code, and the agent keeps secure-coding rules in mind for everything else it writes.</p>
+    <p class="tag">Documents the protection intent of each web route, so that even if the AI misses something, it can still be caught.</p>
     <div class="btns">
       <a class="btn primary" href="https://github.com/zafrem/security-sidecar">View on GitHub</a>
       <a class="btn" href="https://github.com/zafrem/security-sidecar/blob/main/docs/PLAYBOOK.md">Playbook</a>
@@ -50,17 +50,22 @@ footer{margin-top:48px;color:var(--muted);font-size:.9rem}
   </div>
 </header>
 
-<p class="note"><strong>Advice, not a firewall.</strong> A sidecar records intent and blocks nothing in its default annotate mode. The rules are guidance for the agent; they never mean code is secure.</p>
+<p class="note"><strong>Advice, not a firewall.</strong> A sidecar records intent and blocks nothing in its default annotate mode. It is not a secure-coding rule set or a linter: use <code>/security-review</code> and your own scanners for that.</p>
 
 <h2>What it does</h2>
 <div class="grid">
-  <div class="card"><h3>Public or secured</h3><p>When a route file is added, it is classified. Clear cases are saved silently; unsure ones ask you, and the default is secured.</p></div>
-  <div class="card"><h3>Implementation guidance</h3><p>Framework-specific steps: session checks inside the handler, ownership, rate limits, CSRF, caching and indexing.</p></div>
-  <div class="card"><h3>Admin page protection</h3><p>An extra gate (SSO, MFA or a passphrase of 8+ characters), a network restriction, and no links, sitemap or robots.txt entries unless you approve.</p></div>
-  <div class="card"><h3>Risky-code lint</h3><p>Flags <code>eval</code>, shell execution, string-built SQL, raw HTML sinks and path traversal across JS/TS, Python, Go and Java. Suppressions are listed for review.</p></div>
-  <div class="card"><h3>Secure-coding rules</h3><p>14 language-neutral rules with TypeScript, Python, Go and Java notes, reminded at every session start.</p></div>
-  <div class="card"><h3>Any code assistant</h3><p>The same rules are generated for <code>AGENTS.md</code>, Cursor and Gemini.</p></div>
+  <div class="card"><h3>Records intent</h3><p>Each route gets a <code>.route.json</code> sidecar: public, login-only or internal. Clear cases are saved silently; unsure ones ask you and default to secured.</p></div>
+  <div class="card"><h3>Catches drift</h3><p>Compares the recorded intent with the code. An authentication check removed from a protected route is flagged on the pull request.</p></div>
+  <div class="card"><h3>Catches downgrades</h3><p>Flags a pull request that lowers exposure, or removes a gate, rate limit or network restriction from a sidecar.</p></div>
+  <div class="card"><h3>Admin pages</h3><p>An extra gate (SSO, MFA or a passphrase of 8+ characters), a network restriction, and no links or sitemap entries unless you approve.</p></div>
 </div>
+
+<h2>Catching a removed check</h2>
+<pre><code>$ security-sidecar check . --base origin/main --format github --strict
+::error file=app/api/orders/route.ts,title=auth-removed::an authentication
+check present at origin/main is gone from this route, but its sidecar
+says it must be protected. Restore it, or change the recorded intent</code></pre>
+<p style="color:var(--muted);font-size:.9rem">The finding shows up as an annotation on the pull request and fails the job. Detection is text matching for common patterns, so expect misses.</p>
 
 <h2>A sidecar</h2>
 <pre><code>app/admin-k7Qx92mVbT4nLw/.route.json
@@ -78,23 +83,12 @@ footer{margin-top:48px;color:var(--muted);font-size:.9rem}
 /plugin install security-sidecar --marketplace zafrem/security-sidecar</code></pre>
 <p>Then check a project: <code>/security-sidecar:check</code>. The CLI is bundled and needs only Node 18+.</p>
 
-<h2>Does the reminder help?</h2>
-<p>A small informal test: one prompt (an Express <code>DELETE /files/:name</code> handler), five runs each way.</p>
-<table>
-<tr><th></th><th>Without plugin</th><th>With plugin</th></tr>
-<tr><td>Flags missing authentication</td><td>0 of 5</td><td>5 of 5</td></tr>
-<tr><td>Strict file-name pattern</td><td>0 of 5</td><td>5 of 5</td></tr>
-<tr><td>Deletes regular files only</td><td>0 of 5</td><td>5 of 5</td></tr>
-<tr><td>Path traversal blocked</td><td>5 of 5</td><td>5 of 5</td></tr>
-</table>
-<p style="color:var(--muted);font-size:.9rem">Plugin runs left a TODO for authentication rather than adding it. One task and ten runs: it shows an effect, not its size.</p>
-
 <h2>Good to know</h2>
 <ul>
   <li>Enforcement output supports Nginx, Next.js and Cloudflare. Next.js is the tested framework; Express, FastAPI, Go and Java routes are detected by file path.</li>
-  <li>Link and lint checks are line-based text matching, so expect misses and some false positives.</li>
+  <li>Authentication detection and the link scan are text matching, so expect misses and some false positives. If a check lives in middleware or a gateway, record it in <code>enforcement.via</code>.</li>
   <li><code>reason.source: user</code> is a convention an agent could forge, so review sidecar changes in pull requests.</li>
-  <li>Turn the session reminder off with <code>"guidelines": false</code>.</li>
+  <li>For secure-coding rules and linting, rely on <code>/security-review</code> and tools like Semgrep or ESLint security rules.</li>
 </ul>
 
 <footer>MIT licensed · <a href="https://github.com/zafrem/security-sidecar">github.com/zafrem/security-sidecar</a></footer>

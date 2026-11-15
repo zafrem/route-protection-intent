@@ -16,9 +16,9 @@ security-sidecar records the protection intent of each web route in a `.route.js
 
 | Item | Content |
 | --- | --- |
-| In scope | Route detection, classification suggestions, asking the user when unsure, saving `.route.json` with schema validation, missing and orphan checks (`check`), manifest compilation |
+| In scope | Route detection, classification suggestions, asking the user when unsure, saving `.route.json` with schema validation, `check` for missing and orphan sidecars and for code that drifts from the recorded intent (removed auth checks, downgrades), manifest compilation |
 | In scope (v1 targets) | Claude Code plugin; Next.js (file-based routing) plus one of FastAPI or Express |
-| Out of scope (v1) | A runtime enforcement engine, generating real authentication code, Cloudflare WAF output, Codex and agy adapters |
+| Out of scope | A runtime enforcement engine, generating real authentication code, secure-coding rules and code linting (use `/security-review` and your own scanners), Codex and agy adapters |
 
 ### 1.3 Terms
 
@@ -159,10 +159,10 @@ The must-have features of v1 (P0) are detection, classification suggestions, que
 | FR-2.4 | Suggest `cache` and `indexing` only when there is a signal; otherwise leave them empty. | P0 |
 | FR-2.5 | Adjust confidence using authentication signals in the source (session checks, middleware decorators). | P2 |
 | FR-2.7 | Every `analyze` result includes `guidance`: framework-specific implementation steps for the suggested exposure (public: caching, metadata, sitemap for SEO; secured: auth check, `no-store`, `noindex`, rate limiting; internal: network restriction). Text only; the tool never edits route source. | P0 |
-| FR-2.8 | `analyze` guidance includes an input-handling checklist (strict schema validation, no free types, value and size constraints, ownership check, no input-built queries, commands or paths) for route handlers and dynamic pages, in the language of the detected framework (TypeScript or Python). A `secure-functions` skill carries the full rules for any function that receives external input. Guidance only; not enforced. | P1 |
+| FR-2.8 | **Removed.** Input-handling checklist in `analyze` guidance. Use `/security-review` and your own scanners. | - |
 | FR-2.9 | `quiet: true` in `.security-sidecar.config.json` (default off) silences only the confirmation line after a successful save. `analyze` reports `quiet`, and the hook repeats the instruction in its context. Refusals, questions, `check` findings, link warnings and code security problems are never silenced. | P1 |
-| FR-2.11 | A `SessionStart` hook (startup, resume, clear, compact) gives the agent a compact, generated list of the SG rules so they apply to all code it writes, not only routes. Disabled by `"guidelines": false` in the config. Advice only; the reminder never claims code is secure. | P1 |
-| FR-2.10 | One language-neutral set of secure-coding guidelines (rules SG-1 to SG-14 plus per-language notes for TypeScript, Python, Go and Java) lives in `guidelines/` and is generated into the Claude Code `secure-functions` skill, an `AGENTS.md` block, a Cursor rule and a `GEMINI.md` block. The generated files are tested against the source. Guidance only; not enforced. | P1 |
+| FR-2.11 | **Removed.** Session-start security reminder and the `guidelines` config option. | - |
+| FR-2.10 | **Removed.** Common secure-coding guidelines and their generated adapters. Use `/security-review` and your own scanners. | - |
 | FR-2.6 | `adminPaths` in `.security-sidecar.config.json` lists route prefixes (`*` matches within one segment) that are treated like `/admin`: suggested as `authenticated`, `no-store`, `noindex` with `high` confidence, so renamed admin paths do not prompt. | P1 |
 
 ### 4.3 User questions
@@ -191,9 +191,12 @@ The must-have features of v1 (P0) are detection, classification suggestions, que
 | FR-5.1a | Warn (`admin-no-network-restriction`) when a sidecar's route is an admin route (literal `/admin` or an `adminPaths` match) or has `internal` exposure, and `enforcement.via` lacks `ip-allowlist` or `mtls`. A hidden path or a login alone is not a network restriction. | P1 |
 | FR-5.1b | Warn (`admin-no-gate`) when an admin route has no `gate`. | P1 |
 | FR-5.1c | Warn (`admin-path-exposed`) when any scanned file (source, HTML, Markdown, `robots.txt`, sitemap) outside the route's own files references an admin, gated or internal route, unless the sidecar sets `linkable: true`. Config files (`*.config.*`, `middleware.*`) and tests are skipped. | P1 |
-| FR-5.1f | `check` reports `risky-code` findings (file, line, rule) for `eval` / dynamic code, `exec` / shell execution, and SQL built by interpolation or concatenation, in JavaScript, TypeScript and Python files (tests excluded). It is line-based text matching. A `security-sidecar-ignore` comment on the line or the line above suppresses a finding; suppressed lines are listed in the `check` output (`suppressed`) and never fail `--strict`. The hook runs the same lint on every edited file and reports hits to the agent. | P1 |
+| FR-5.1f | **Removed.** Risky-code lint. Use a linter or scanner (Semgrep, ESLint security rules, Bandit). | - |
 | FR-5.1d | The PostToolUse hook runs the same reference scan on any edited non-route file and reports hits to the agent, which must remove the link unless the user explicitly asks to keep it. | P1 |
 | FR-5.1e | `save` refuses `linkable: true` unless the policy carries `reason.source: user` (or the sidecar was already linkable), and `check` warns (`linkable-not-approved`) when `linkable: true` is present without `reason.source: user`. The skill must ask the user before setting it, even when the user's own request mentioned the link. | P0 |
+| FR-5.1g | Warn (`auth-not-found`) when a sidecar has an `authenticated` or `internal` method but no authentication signal is found in the route source, unless `enforcement.via` names an external control (`app-middleware`, `api-gateway`, `waf`, `ip-allowlist`, `mtls`). | P0 |
+| FR-5.1h | With `--base <git-ref>`, report `auth-removed` when an authentication signal present in the route source at that ref is gone and the sidecar still says the route is protected. | P0 |
+| FR-5.1i | `check --format github` prints a `::error` (`auth-removed`, `policy-downgrade`) or `::warning` annotation per finding so a pull request shows them on the changed files. | P1 |
 | FR-5.3 | Print both a human-readable summary and machine-readable JSON (`--json`). | P1 |
 
 ### 4.6 Compilation (`compile`, opt-in)

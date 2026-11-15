@@ -24,7 +24,7 @@ A hook runs `analyze` whenever you write or edit a route file and passes you its
 ## Rules
 
 - Never add a link, nav item, sitemap entry or robots.txt line pointing to an admin, gated or internal route. If the hook reports such a reference, remove it. A request that merely mentions the link ("add an Admin link to the nav") is not approval to expose the route. Before keeping any such link, ask the user with AskUserQuestion, stating that the link makes the hidden admin URL visible to every visitor and that the options are: remove the link (recommended), or keep it. Only if they choose to keep it, run `save` with `"linkable": true` and `"reason": {"source": "user"}`. Never edit a sidecar by hand to set `linkable`; `save` rejects it without user approval and `check` flags it.
-- When you write or change the handler itself, also follow the `secure-functions` skill (strict input validation, no free types, ownership checks).
+- Do not remove an authentication check from a route whose sidecar says it is protected. If the user really wants that, say it changes the recorded intent and ask them to confirm; `check --base` will flag the removal either way.
 - Prefer the conservative side. When unsure, `authenticated` or `unclassified` beats `public`.
 - Never put keys, tokens, passwords or connection strings in any field, including `notes`.
 - Never edit route source code for this. Touch only sidecars.

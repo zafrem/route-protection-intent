@@ -2,37 +2,45 @@
 
 [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/zafrem)
 
-Records the protection intent of each web route in a `.route.json` sidecar file next to the code, whenever an AI coding agent creates or changes a route.
+**Documents the protection intent of each web route, so that even if the AI misses something, it can still be caught.**
+
+Each route gets a small `.route.json` sidecar next to its code that says what the route is meant to be: public, login-only, or internal. `check` then compares that intent with the actual code, and warns, for example in a pull request, when an authentication check disappears from a route that is supposed to be protected.
+
+This is not a collection of secure-coding rules or a linter. For those, use Claude Code's built-in `/security-review` and the linters and scanners you already run (for example Semgrep, ESLint security rules, Bandit). security-sidecar adds the one thing they lack: a written record of what each route is *supposed* to do.
 
 > **Annotation is not protection.** By default (`mode: annotate`) this tool only records intent. It blocks nothing, and `check` only warns. A route with a sidecar is not thereby protected.
 
-## Features
+## What it catches
 
-1. Detects route files when an agent writes or edits them.
-2. Suggests exposure, caching and indexing for each route.
-3. Asks you only when the suggestion is uncertain.
-4. Saves a `.route.json` sidecar, validated against a schema.
-5. Refuses to save secrets (keys, tokens, connection strings).
-6. `check` reports missing, orphan, invalid and unclassified sidecars, intent-vs-code drift (`intent-code-mismatch`), and security downgrades (`--base <git-ref>`).
-7. `adminPaths` setting for renamed admin pages.
-8. Warns when an admin or internal route has no network restriction.
-9. Optional `compile` to `routes-manifest.json` and an `nginx`, `nextjs` or `cloudflare` config.
-10. Claude Code plugin with a hook, a skill and two slash commands.
+`check` flags a route when its code and its recorded intent disagree:
 
-## Security features
+| Finding | Meaning |
+| --- | --- |
+| `auth-removed` | An authentication check present at `--base` is gone from a route whose sidecar says it is protected |
+| `auth-not-found` | The sidecar says protected, but no authentication check is visible in the route code |
+| `policy-downgrade` | A pull request weakened the intent itself: exposure lowered, gate, rate limit or network restriction removed |
+| `intent-code-mismatch` | The route code's caching or `robots` metadata contradicts the sidecar |
+| `admin-path-exposed` | A link, sitemap entry or `robots.txt` line points at an admin, gated or internal route |
+| `admin-no-gate`, `admin-no-network-restriction` | An admin or internal route lacks the recorded extra gate or network restriction |
+| `missing`, `orphan`, `unclassified`, `schema` | A route has no sidecar, a sidecar has no route, a value is undecided, or the file is invalid |
 
-1) Public or secured decision: every new route is classified as public (indexable, for SEO) or secured, and when unsure it suggests the secured side and asks you.
-2) Implementation guidance: each classification comes with concrete steps for your framework (auth check, `no-store`, `noindex`, rate limiting for secured routes; caching, metadata and sitemap for public ones).
-3) Extra gate for admin pages: `/admin` and any path in `adminPaths` prompts for a second step (a passphrase of 8+ characters, SSO or MFA). Only the type and minimum length are recorded, never the secret.
-4) No links to admin pages: `check` and the editing hook flag any link, sitemap entry or `robots.txt` line that points to an admin, gated or internal route, until you approve it. Setting `"linkable": true` needs your explicit confirmation; `save` refuses it otherwise and `check` flags a hand-edited one.
-5) Renamed admin paths: list them in `adminPaths` and they are treated like `/admin`.
-6) Network restriction warning: admin and internal routes warn if no `ip-allowlist` or `mtls` is recorded.
-7) Secret rejection: keys, tokens, passwords and connection strings are refused before anything is written.
-8) Safe sidecars: schema validation, no unknown fields, warning for sidecars in `public/` or `static/`, and a warning that `routes-manifest.json` lists admin paths.
-9) Your edits are kept: `save` never overwrites your notes, your chosen values or your `gate` and `linkable` settings.
-10) Common secure-coding guidelines: 14 language-neutral rules (strict input validation, no free types, value constraints, ownership checks, no input-built queries or commands, safe secrets, crypto and errors) with notes for TypeScript, Python, Go and Java. One source in `guidelines/` is generated for Claude Code (skill), `AGENTS.md` (Codex and others), Cursor and Gemini. In Claude Code a session-start hook also gives the agent a short reminder of the rules for all code it writes (turn off with `"guidelines": false`). Guidance only; nothing is enforced. See [adapters/](adapters/README.md).
-11) Risky-code lint: `check` and the edit hook flag `eval`, `exec` / shell calls, string-built SQL, and raw HTML sinks (`dangerouslySetInnerHTML` / `innerHTML`) across JavaScript, TypeScript, Python, Go and Java, with file and line. Reviewed lines can be marked `security-sidecar-ignore`; `check` still lists those for review.
-12) Honest defaults: annotate mode records intent only and blocks nothing, and `check` says so.
+Authentication detection is a text match for common patterns (`getServerSession`, `await auth()`, `req.user`, `Depends(get_current_user)`, `@login_required`, and similar), so expect misses. If a check lives in middleware or a gateway, record that in `enforcement.via` and the route is not flagged.
+
+## Use it on pull requests
+
+Copy [`examples/github-action/security-sidecar.yml`](examples/github-action/security-sidecar.yml) into `.github/workflows/`. It runs `check --base origin/<target branch> --format github --strict`, so findings appear as annotations on the changed files and the job fails.
+
+Locally: `node plugins/security-sidecar/cli/bin/security-sidecar.js check . --base main`.
+
+## How the intent gets recorded
+
+1. You or the agent write a route file (`app/**/route.ts`, `pages/**`, `routers/**`, `routes/**`, `urls.py`, Go and Java handlers).
+2. A PostToolUse hook runs `analyze` and gives Claude a classification suggestion (public or secured, with a conservative default).
+3. Clear cases are saved silently. Unclear ones ask you, always including "leave unclassified".
+4. Admin pages (`/admin` and your `adminPaths`) ask for an extra gate (SSO, MFA or a passphrase of 8+ characters; only the type and length are recorded) and are never linked from elsewhere unless you approve.
+5. `save` validates against a schema, refuses secrets, and keeps your own edits.
+
+Optional: `/security-sidecar:compile nginx|nextjs|cloudflare` turns `mode: enforce` sidecars into a manifest and config. Off by default.
 
 ## Install (Claude Code)
 
@@ -43,19 +51,7 @@ Records the protection intent of each web route in a `.route.json` sidecar file 
 
 Local testing: `/plugin marketplace add ./security-sidecar`.
 
-## How it works
-
-1. You or the agent write a route file (`app/**/route.ts`, `pages/**`, `routers/**`, `routes/**`, `urls.py`).
-2. A PostToolUse hook runs `analyze` and gives Claude a classification suggestion.
-3. Clear cases are saved silently. Unclear ones prompt you with 2 or 3 options, always including "leave unclassified".
-4. `/security-sidecar:check` finds routes with no sidecar, orphans, schema errors and `unclassified` values.
-5. Opt in: `/security-sidecar:compile nginx` turns `mode: enforce` sidecars into `routes-manifest.json` and an nginx config.
-
 Sidecar naming: `.route.json` where the directory is the route (Next.js app router); `<name>.route.json` where one directory holds many route files.
-
-## Security reminder
-
-Once the plugin is installed, a session-start hook reminds the agent of the secure-coding rules (SG-1 to SG-14) for every piece of code it writes, not only routes. It costs a little context per session. To turn it off, set `"guidelines": false` in `.security-sidecar.config.json`. It is advice, not enforcement. In a small informal test (five runs each way on one task) it made the agent flag missing authentication and constrain input where it otherwise did not; see the [playbook](docs/PLAYBOOK.md).
 
 ## Quiet mode
 
@@ -87,16 +83,11 @@ A hidden path is not protection. `check` warns about any admin or `internal` rou
 - `routes-manifest.json` lists admin and internal paths. Keep it out of public build output and deploy artifacts.
 - `save` refuses secret-like values (keys, tokens, connection strings).
 
-## Guidelines for any code assistant
-
-The same secure-coding rules are available outside Claude Code. Copy the file for your assistant from [`adapters/`](adapters/README.md): `AGENTS.md` (Codex and other agents), a Cursor rule, or `GEMINI.md`. They are generated from [`guidelines/`](guidelines), so edit the source and run `npm run guidelines`.
-
 ## Development
 
 ```
 npm test          # core + hook tests
 npm run bundle    # copy the CLI into plugins/security-sidecar/cli (commit the result)
-npm run guidelines  # regenerate the skill and adapters from guidelines/ (commit the result)
 ```
 
 Zero runtime dependencies; Node 18+.

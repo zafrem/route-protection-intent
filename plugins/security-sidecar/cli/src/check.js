@@ -4,11 +4,45 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 const R = require('./routes');
 const { protectedRoutes, scanFile } = require('./links');
-const { lintFile } = require('./lint');
+const { hasAuthSignal } = require('./analyze');
 const { validate } = require('./validate');
 
 const NETWORK_RESTRICTIONS = ['ip-allowlist', 'mtls'];
 const EXPOSURE_RANK = { unclassified: 0, public: 1, authenticated: 2, internal: 3 };
+
+
+const SAFE_REF = /^[A-Za-z0-9_./~^-]+$/;
+function gitShow(root, base, rel) {
+  if (!base || !SAFE_REF.test(base)) return null;
+  const g = spawnSync('git', ['show', `${base}:${rel}`], { cwd: root, encoding: 'utf8' });
+  return g.status === 0 ? g.stdout : null;
+}
+// Where the check is declared to live outside the route code: no signal expected in the handler.
+// Sign-in endpoints are reachable before authentication by design, so a missing check there is not drift.
+const AUTH_ENTRY = /(^|\/)(login|logout|signin|signup|register|auth|session|callback|oauth)(\/|$)/i;
+const EXTERNAL_VIA = ['app-middleware', 'api-gateway', 'waf', 'ip-allowlist', 'mtls'];
+
+// Intent says "needs login" but the route code shows no sign of it, or a PR removed the sign.
+function checkAuthDrift(root, sidecarRel, doc, routeFiles = [], base) {
+  const out = [];
+  const secured = Object.values(doc.methods || {}).some((m) => m.exposure === 'authenticated' || m.exposure === 'internal');
+  if (!secured || !routeFiles.length) return out;
+  const via = (doc.enforcement && doc.enforcement.via) || [];
+  const external = via.some((v) => EXTERNAL_VIA.includes(v));
+  for (const rf of routeFiles) {
+    let now = '';
+    try { now = fs.readFileSync(path.join(root, rf), 'utf8'); } catch { continue; }
+    const before = gitShow(root, base, rf);
+    const hadBefore = before != null && hasAuthSignal(before);
+    const hasNow = hasAuthSignal(now);
+    if (hadBefore && !hasNow) {
+      out.push({ type: 'auth-removed', file: rf, message: `an authentication check present at ${base} is gone from this route, but its sidecar (${sidecarRel}) says it must be protected. Restore it, or change the recorded intent on purpose` });
+    } else if (!hasNow && !external && !AUTH_ENTRY.test(doc.route || '')) {
+      out.push({ type: 'auth-not-found', file: rf, message: `sidecar ${sidecarRel} says this route is protected, but no authentication check was found in the route code. If it is enforced elsewhere (middleware, gateway), record that in enforcement.via` });
+    }
+  }
+  return out;
+}
 
 function checkIntentCodeDrift(root, sidecarRel, doc, routeFiles = []) {
   const out = [];
@@ -121,13 +155,13 @@ function check(root = process.cwd(), { strict = false, base } = {}) {
       findings.push({ type: 'admin-no-gate', file: rel, message: `${doc.route} is an admin route with no extra gate recorded (passphrase of 8+ characters, SSO or MFA); a login alone is one factor` });
     }
     if (!expected.has(rel)) findings.push({ type: 'orphan', file: rel, message: 'no matching route source (deleted or renamed?)' });
-    else findings.push(...checkIntentCodeDrift(root, rel, doc, routeFilesBySidecar.get(rel)));
-    if (base && /^[A-Za-z0-9_./~^-]+$/.test(base)) {
-      const g = spawnSync('git', ['show', `${base}:${rel}`], { cwd: root, encoding: 'utf8' });
-      if (g.status === 0 && g.stdout) {
-        try { findings.push(...diffSidecar(JSON.parse(g.stdout), doc, rel)); } catch { /* ignore invalid base json */ }
-      }
+    else {
+      const rfs = routeFilesBySidecar.get(rel);
+      findings.push(...checkIntentCodeDrift(root, rel, doc, rfs));
+      findings.push(...checkAuthDrift(root, rel, doc, rfs, base));
     }
+    const old = gitShow(root, base, rel);
+    if (old) { try { findings.push(...diffSidecar(JSON.parse(old), doc, rel)); } catch { /* ignore invalid base json */ } }
   }
   for (const rel of [...expected].sort()) {
     if (!existing.includes(rel)) findings.push({ type: 'missing', file: rel, message: 'route has no sidecar' });
@@ -136,39 +170,12 @@ function check(root = process.cwd(), { strict = false, base } = {}) {
   const prot = protectedRoutes(docs, config.adminPaths);
   if (prot.length) for (const rel of allFiles) findings.push(...scanFile(root, rel, prot));
 
-  const suppressed = [];
-  for (const rel of allFiles) {
-    for (const h of lintFile(root, rel, { includeSuppressed: true })) (h.suppressed ? suppressed : findings).push(h);
-  }
-  if (base && /^[A-Za-z0-9_./~^-]+$/.test(base) && suppressed.length) {
-    const byFile = new Map();
-    for (const s of suppressed) {
-      if (!byFile.has(s.file)) byFile.set(s.file, []);
-      byFile.get(s.file).push(s);
-    }
-    const { lintSource } = require('./lint');
-    for (const [rel, curList] of byFile.entries()) {
-      const g = spawnSync('git', ['show', `${base}:${rel}`], { cwd: root, encoding: 'utf8' });
-      const oldSup = g.status === 0 && g.stdout
-        ? lintSource(rel, g.stdout, { includeSuppressed: true }).filter((x) => x.suppressed)
-        : [];
-      if (curList.length > oldSup.length) {
-        findings.push({
-          type: 'new-suppression',
-          file: rel,
-          message: `${curList.length - oldSup.length} new security-sidecar-ignore suppression(s) added since ${base}; review each one`,
-        });
-      }
-    }
-  }
-
   const enforcing = (f) => docs.get(f.file)?.mode === 'enforce';
   const failing = findings.filter((f) => strict || enforcing(f));
   findings.sort((a, b) => (a.file < b.file ? -1 : a.file > b.file ? 1 : a.type < b.type ? -1 : 1));
   return {
     ok: failing.length === 0, exitCode: failing.length ? 1 : 0, strict,
     routes: expected.size, sidecars: existing.length, findings,
-    suppressed: suppressed.map(({ file, line, rule }) => ({ file, line, rule })),
     summary: findings.length ? `${findings.length} finding(s)` : 'all routes have valid sidecars',
   };
 }
@@ -176,11 +183,16 @@ function check(root = process.cwd(), { strict = false, base } = {}) {
 function format(r) {
   const lines = r.findings.map((f) => `  [${f.type}] ${f.file}: ${f.message}`);
   const head = `security-sidecar check: ${r.routes} route(s), ${r.sidecars} sidecar(s) - ${r.summary}`;
-  const sup = r.suppressed.length
-    ? `\n${r.suppressed.length} risky-code line(s) suppressed with security-sidecar-ignore; review them: ${r.suppressed.map((s) => `${s.file}:${s.line} [${s.rule}]`).join(', ')}` : '';
-  const tail = sup + (r.findings.length && !r.strict && r.exitCode === 0
+  const tail = (r.findings.length && !r.strict && r.exitCode === 0
     ? '\n(annotate mode: warnings only, exit 0. Use --strict to fail on findings.)' : '');
   return [head, ...lines].join('\n') + tail;
 }
 
-module.exports = { check, format, diffSidecar };
+// GitHub Actions annotations: show findings on the pull request's changed lines.
+const ERROR_TYPES = new Set(['auth-removed', 'policy-downgrade']);
+function formatGithub(r) {
+  const esc = (t) => String(t).replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
+  return r.findings.map((f) => `::${ERROR_TYPES.has(f.type) ? 'error' : 'warning'} file=${f.file},title=${f.type}::${esc(f.message)}`).join('\n');
+}
+
+module.exports = { check, format, formatGithub, diffSidecar };

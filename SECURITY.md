@@ -26,5 +26,5 @@ Examples of problems we want to hear about:
 ## What is not a vulnerability
 
 - **Annotation is not enforcement.** In `annotate` mode the tool records intent and blocks nothing. A route with a sidecar is not protected by it.
-- The documented limits: routes registered only in code are not detected, `enforcement.via` is not verified, the lint and link scan are text matching, and an agent can write `reason.source: user` or a `security-sidecar-ignore` comment (`check` lists suppressions for review).
+- The documented limits: routes registered only in code are not detected, `enforcement.via` is not verified, authentication detection and the link scan are text matching, and an agent can write `reason.source: user`.
 - Findings that need a malicious maintainer or write access to the repository.

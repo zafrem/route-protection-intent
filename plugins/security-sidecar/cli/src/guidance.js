@@ -24,27 +24,7 @@ const CACHE = {
   java: 'Send `Cache-Control: public, max-age=...` on public responses.',
 };
 
-const INPUT = {
-  nextjs: 'Parse params, query, body and headers with a strict schema (for example zod `.strict()`) before use. Type inputs as `unknown` and narrow them; never `any`.',
-  express: 'Parse params, query, body and headers with a strict schema (for example zod `.strict()`) before use. Type inputs as `unknown` and narrow them; never `any`.',
-  fastapi: 'Declare inputs as pydantic models or typed parameters with `Field(...)` constraints and `extra="forbid"`; never `Any` or a bare `dict`.',
-  go: 'Decode into a typed struct with `DisallowUnknownFields()`, limit body size with `http.MaxBytesReader`, and never use `map[string]any` for input.',
-  java: 'Deserialize into a typed record/DTO with `@Valid` Bean Validation (`@NotNull`, `@Size`, `@Pattern`) and `FAIL_ON_UNKNOWN_PROPERTIES`; never `Map<String, Object>`.',
-};
-
-// Secure-coding checklist for code that receives external input (see skills/secure-functions).
-function inputRules(relPath, route) {
-  const isPage = /(^|\/)page\.[^/]+$/.test(relPath);
-  if (isPage && !/\[/.test(route)) return [];
-  return [
-    `Input: ${INPUT[frameworkOf(relPath)]}`,
-    'Input: constrain every value: numeric min/max, string length and pattern or enum, array size, and a body/upload size limit. Prefer allowlists.',
-    'Input: check the caller may access this specific resource id (ownership or role), not only that they are logged in.',
-    'Input: never build SQL, shell commands or file paths from input; use parameterized queries and confine paths. Fail closed with a generic error.',
-  ];
-}
-
-function guidance({ exposure, relPath, isAdmin, route = '' }) {
+function guidance({ exposure, relPath, isAdmin }) {
   const fw = frameworkOf(relPath);
   const g = [];
   if (exposure === 'public') {
@@ -69,7 +49,6 @@ function guidance({ exposure, relPath, isAdmin, route = '' }) {
     g.push('A passphrase must come from an environment variable or secret store, be compared in constant time, and be rate limited with lockout. Never commit it or write it into a sidecar.');
     g.push('Return the same 404 as an unknown URL to visitors who fail the gate. Do not link to this route from nav, footer, sitemap or robots.txt.');
   }
-  g.push(...inputRules(relPath, route));
   return g;
 }
 

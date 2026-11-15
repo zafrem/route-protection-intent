@@ -4,6 +4,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). The plugin name 
 
 ## [Unreleased]
 
+Refocused on recording protection intent and catching drift from it.
+
+- `check`: `auth-removed` (an authentication check present at `--base` is gone from a route whose sidecar says it is protected) and `auth-not-found` (no check visible in the route code, unless `enforcement.via` names an external control).
+- `check --format github`: findings as pull-request annotations. New `examples/github-action/security-sidecar.yml`.
+- New positioning: a tool for documenting protection intent per route, so that even if the AI misses something it can still be caught.
+- Removed, in favour of Claude Code's `/security-review` and your own scanners: the secure-coding guidelines (`guidelines/`, `adapters/`, the `secure-functions` skill, the session-start reminder and the `guidelines` config option), the risky-code lint and its suppressions, and the per-handler `Input:` guidance lines.
+
 - `analyze`: detect in-handler authentication signals (`getServerSession`, `await auth()`, `req.user`, `Depends`, `@login_required`) to boost confidence (`source-auth-signal`), and preserve distinct per-method policies in multi-method route files.
 - `check`: detect `intent-code-mismatch` when route source caching (`force-static`, `revalidate > 0`) or `robots` metadata contradicts the sidecar.
 - `check`: add `--base <git-ref>` and `policy-downgrade` findings to catch weakened exposure, removed gates, removed rate limits, or removed network restrictions against a git ref.

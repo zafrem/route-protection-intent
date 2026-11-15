@@ -128,7 +128,7 @@ test('plugin hook emits context for route files only, and the bundle is current'
   const hit = JSON.parse(run('app/api/login/route.ts').stdout);
   assert.match(hit.hookSpecificOutput.additionalContext, /"route": "\/api\/login"/);
   assert.strictEqual(run('lib/util.ts').stdout, '');
-  for (const f of ['src/analyze.js', 'src/save.js', 'src/check.js', 'src/compile.js', 'src/routes.js', 'src/targets/nginx.js', 'src/targets/nextjs.js', 'src/targets/cloudflare.js', 'src/links.js', 'src/lint.js', 'src/guidance.js', 'schema/route.schema.json']) {
+  for (const f of ['src/analyze.js', 'src/save.js', 'src/check.js', 'src/compile.js', 'src/routes.js', 'src/targets/nginx.js', 'src/targets/nextjs.js', 'src/targets/cloudflare.js', 'src/links.js', 'src/guidance.js', 'schema/route.schema.json']) {
     assert.strictEqual(fs.readFileSync(path.join(__dirname, '..', 'plugins/security-sidecar/cli', f), 'utf8'), fs.readFileSync(path.join(__dirname, '..', f), 'utf8'), `${f} out of date; run npm run bundle`);
   }
 });
@@ -237,16 +237,6 @@ test('linkable needs user approval: save refuses, check flags hand edits', () =>
   assert.ok(!check(root).findings.some((f) => f.type === 'linkable-not-approved'));
 });
 
-test('guidance includes an input checklist for handlers, per language', () => {
-  const next = analyzeSource({ relPath: 'app/api/orders/route.ts', source: 'export async function POST(){}' });
-  assert.ok(next.guidance.some((g) => /^Input:.*zod/.test(g)));
-  assert.ok(next.guidance.some((g) => /^Input:.*ownership/.test(g)));
-  const py = analyzeSource({ relPath: 'routers/orders.py', source: '@router.post("/x")\ndef f(): pass' });
-  assert.ok(py.guidance.some((g) => /pydantic/.test(g)));
-  assert.ok(!analyzeSource({ relPath: 'app/blog/page.tsx', source: '' }).guidance.some((g) => /^Input:/.test(g)), 'static page has no inputs');
-  assert.ok(analyzeSource({ relPath: 'app/blog/[slug]/page.tsx', source: '' }).guidance.some((g) => /^Input:/.test(g)), 'dynamic page has params');
-});
-
 test('quiet config is reported by analyze and defaults to off', () => {
   const { analyze } = require('../src/analyze');
   const root = tmp();
@@ -269,103 +259,6 @@ test('hook carries the quiet-mode instruction only when quiet is on', () => {
   assert.ok(!/QUIET MODE/.test(run()));
   put(root, '.security-sidecar.config.json', JSON.stringify({ quiet: true }));
   assert.match(run(), /QUIET MODE is on/);
-});
-
-test('lint flags eval, exec and string-built SQL, with few false positives', () => {
-  const { lintSource } = require('../src/lint');
-  const rules = (rel, src) => lintSource(rel, src).map((h) => `${h.line}:${h.rule}`);
-  // JS / TS: should flag
-  assert.deepStrictEqual(rules('a.ts', 'const r = eval(input)\nconst f = new Function("x", body)'), ['1:eval', '2:eval']);
-  assert.deepStrictEqual(rules('a.ts', 'import { exec } from "child_process"\nexec(`ls ${dir}`)'), ['2:exec']);
-  assert.deepStrictEqual(rules('a.ts', 'cp.execSync(cmd)\nspawn("a", [], { shell: true })'), ['1:exec', '2:exec']);
-  assert.deepStrictEqual(rules('a.ts', 'db.query(`SELECT * FROM users WHERE id = ${id}`)'), ['1:sql-string']);
-  assert.deepStrictEqual(rules('a.ts', 'db.query("SELECT * FROM users WHERE id = " + id)'), ['1:sql-string']);
-  assert.deepStrictEqual(rules('a.ts', 'db.query("DELETE FROM t WHERE id = $1", [id])'), []);
-  // JS / TS: should not flag
-  assert.deepStrictEqual(rules('a.ts', '/\\d+/.exec(s)\nawait page.evaluate(fn)\nconst ev = obj.eval2()\n// eval(x) in a comment'), []);
-  assert.deepStrictEqual(rules('a.ts', 'exec(sql)'), [], 'bare exec without child_process import');
-  // Python
-  assert.deepStrictEqual(rules('a.py', 'x = eval(s)\nexec(code)\nos.system(cmd)\nsubprocess.run(c, shell=True)'), ['1:eval', '2:exec', '3:exec', '4:exec']);
-  assert.deepStrictEqual(rules('a.py', 'cur.execute(f"SELECT * FROM t WHERE id = {i}")'), ['1:sql-string']);
-  assert.deepStrictEqual(rules('a.py', 'cur.execute("SELECT * FROM t WHERE id = %s" % i)\ncur.execute("UPDATE t SET a=1 WHERE id={}".format(i))'), ['1:sql-string', '2:sql-string']);
-  assert.deepStrictEqual(rules('a.py', 'cur.execute("SELECT * FROM t WHERE id = %s", (i,))\nast.literal_eval(s)\nre.compile(p).exec_x()'), []);
-  // suppression and skipped files
-  assert.deepStrictEqual(rules('a.ts', '// security-sidecar-ignore reviewed\nconst r = eval(trusted)\nconst q = eval(x) // security-sidecar-ignore'), []);
-  assert.deepStrictEqual(rules('a.test.ts', 'eval(x)'), []);
-  assert.deepStrictEqual(rules('README.md', 'eval(x)'), []);
-});
-
-test('check reports risky code with file and line; strict fails; hook warns', () => {
-  const root = tmp();
-  put(root, 'lib/run.ts', 'export const run = (c: string) => {\n  return eval(c)\n}');
-  const f = check(root).findings.filter((x) => x.type === 'risky-code');
-  assert.deepStrictEqual(f.map((x) => `${x.file}:${x.line}:${x.rule}`), ['lib/run.ts:2:eval']);
-  assert.strictEqual(check(root).exitCode, 0);
-  assert.strictEqual(check(root, { strict: true }).exitCode, 1);
-  const hook = path.join(__dirname, '..', 'plugins', 'security-sidecar', 'hooks', 'post-tool-use.js');
-  const run = (file) => spawnSync('node', [hook], { input: JSON.stringify({ cwd: root, tool_input: { file_path: path.join(root, file) } }), encoding: 'utf8' }).stdout;
-  assert.match(JSON.parse(run('lib/run.ts')).hookSpecificOutput.additionalContext, /lib\/run\.ts:2 \[eval\]/);
-  put(root, 'app/api/q/route.ts', 'export async function POST(r: Request){ return db.query(`SELECT * FROM t WHERE a = ${await r.text()}`) }');
-  const ctx = JSON.parse(run('app/api/q/route.ts')).hookSpecificOutput.additionalContext;
-  assert.match(ctx, /"route": "\/api\/q"/);
-  assert.match(ctx, /\[sql-string\]/);
-});
-
-test('suppressed risky lines are not hidden: check lists them for review', () => {
-  const root = tmp();
-  put(root, 'lib/a.ts', '// security-sidecar-ignore: reviewed\nconst r = eval(trusted)');
-  const r = check(root);
-  assert.strictEqual(r.findings.filter((f) => f.type === 'risky-code').length, 0);
-  assert.deepStrictEqual(r.suppressed, [{ file: 'lib/a.ts', line: 2, rule: 'eval' }]);
-  assert.match(require('../src/check').format(r), /suppressed.*lib\/a\.ts:2 \[eval\]/);
-  assert.strictEqual(check(root, { strict: true }).exitCode, 0, 'suppressed lines do not fail strict');
-});
-
-test('generated guideline files match the single source', () => {
-  const { build } = require('../scripts/guidelines');
-  const out = build();
-  assert.deepStrictEqual(Object.keys(out).sort(), [
-    'adapters/agents/AGENTS.md', 'adapters/cursor/security-sidecar.mdc', 'adapters/gemini/GEMINI.md',
-    'plugins/security-sidecar/hooks/security-reminder.txt', 'plugins/security-sidecar/skills/secure-functions/SKILL.md',
-  ]);
-  for (const [rel, content] of Object.entries(out)) {
-    assert.strictEqual(fs.readFileSync(path.join(__dirname, '..', rel), 'utf8'), content, `${rel} is out of date; run npm run guidelines`);
-  }
-});
-
-test('guidelines: every rule and language is in every output, with valid front matter', () => {
-  const { build } = require('../scripts/guidelines');
-  const core = fs.readFileSync(path.join(__dirname, '..', 'guidelines', 'core.md'), 'utf8');
-  const ids = [...core.matchAll(/\*\*(SG-\d+)\./g)].map((m) => m[1]);
-  assert.ok(ids.length >= 14);
-  assert.deepStrictEqual(ids, ids.map((_, i) => `SG-${i + 1}`), 'ids are sequential');
-  for (const [rel, content] of Object.entries(build())) {
-    if (rel.endsWith('security-reminder.txt')) { for (const id of ids) assert.ok(content.includes(`- ${id}.`), `${rel} lacks ${id}`); continue; }
-    for (const id of ids) assert.ok(content.includes(`**${id}.`), `${rel} lacks ${id}`);
-    for (const lang of ['TypeScript / JavaScript', 'Python', 'Go', 'Java']) assert.ok(content.includes(lang), `${rel} lacks ${lang}`);
-  }
-  const skill = build()['plugins/security-sidecar/skills/secure-functions/SKILL.md'];
-  assert.match(skill, /^---\nname: secure-functions\ndescription: [^\n]+\n---\n/);
-  const cursor = build()['adapters/cursor/security-sidecar.mdc'];
-  assert.match(cursor, /^---\ndescription: [^\n]+\nglobs: [^\n]+\nalwaysApply: false\n---\n/);
-  assert.match(build()['adapters/agents/AGENTS.md'], /<!-- BEGIN security-sidecar guidelines -->[\s\S]*<!-- END security-sidecar guidelines -->/);
-});
-
-test('session-start hook gives the security rules to the agent unless disabled', () => {
-  const hook = path.join(__dirname, '..', 'plugins', 'security-sidecar', 'hooks', 'session-start.js');
-  const root = tmp();
-  const run = () => spawnSync('node', [hook], { input: JSON.stringify({ cwd: root, hook_event_name: 'SessionStart' }), encoding: 'utf8' }).stdout;
-  const out = JSON.parse(run()).hookSpecificOutput;
-  assert.strictEqual(out.hookEventName, 'SessionStart');
-  const core = fs.readFileSync(path.join(__dirname, '..', 'guidelines', 'core.md'), 'utf8');
-  for (const id of [...core.matchAll(/\*\*(SG-\d+)\./g)].map((m) => m[1])) assert.ok(out.additionalContext.includes(id), `reminder lacks ${id}`);
-  assert.match(out.additionalContext, /ALL code/);
-  put(root, '.security-sidecar.config.json', JSON.stringify({ guidelines: false }));
-  assert.strictEqual(run(), '', 'opt-out prints nothing');
-  put(root, '.security-sidecar.config.json', '{ not json');
-  assert.ok(run().includes('SessionStart'), 'a broken config falls back to the default (on)');
-  const hooks = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'plugins', 'security-sidecar', 'hooks', 'hooks.json'), 'utf8')).hooks;
-  assert.ok(hooks.SessionStart && hooks.PostToolUse, 'both hooks are registered');
 });
 
 test('analyze: source auth signals boost confidence and per-method policies are preserved', () => {
@@ -431,22 +324,9 @@ test('check detects intent-code-mismatch and policy-downgrade against git base',
   spawnSync('git', ['add', '.'], { cwd: root });
   spawnSync('git', ['commit', '-m', 'init'], { cwd: root });
   put(root, 'app/admin/.route.json', JSON.stringify(newDoc));
-  put(root, 'app/admin/route.ts', '// security-sidecar-ignore: added suppression\nexport function POST(){ eval(x) }');
   const gitCheck = check(root, { base: 'HEAD' });
   const gitDowns = gitCheck.findings.filter((f) => f.type === 'policy-downgrade');
   assert.strictEqual(gitDowns.length, 5);
-  assert.strictEqual(gitCheck.findings.filter((f) => f.type === 'new-suppression').length, 1);
-});
-
-test('lint supports Go, Java, XSS raw HTML sinks, and path traversal', () => {
-  const { lintSource } = require('../src/lint');
-  const rules = (rel, src) => lintSource(rel, src).map((h) => `${h.line}:${h.rule}`);
-  assert.deepStrictEqual(rules('a.tsx', 'return <div dangerouslySetInnerHTML={{ __html: html }} />\nel.innerHTML = raw'), ['1:xss-raw-html', '2:xss-raw-html']);
-  assert.deepStrictEqual(rules('a.ts', 'fs.readFile(`/tmp/${name}`, cb)\nfs.unlinkSync(req.params.file)'), ['1:path-traversal', '2:path-traversal']);
-  assert.deepStrictEqual(rules('a.py', 'open(f"/var/data/{name}")'), ['1:path-traversal']);
-  assert.deepStrictEqual(rules('a.go', 'exec.Command("sh", "-c", input)\nq := fmt.Sprintf("SELECT * FROM users WHERE id = %s", id)\nos.ReadFile(r.URL.Query().Get("f"))'), ['1:exec', '2:sql-string', '3:path-traversal']);
-  assert.deepStrictEqual(rules('a_test.go', 'exec.Command("sh", "-c", input)'), []);
-  assert.deepStrictEqual(rules('A.java', 'Runtime.getRuntime().exec(cmd);\nString q = String.format("SELECT * FROM t WHERE id = %s", id);'), ['1:exec', '2:sql-string']);
 });
 
 test('detects Go and Java routes and gives language-specific guidance', () => {
@@ -456,8 +336,35 @@ test('detects Go and Java routes and gives language-specific guidance', () => {
   assert.ok(!R.isRouteFile('routes/OrdersTest.java'));
   const goRes = analyzeSource({ relPath: 'routes/orders.go', source: 'r.Post("/orders", createOrder)' });
   assert.deepStrictEqual(goRes.methods, ['POST']);
-  assert.ok(goRes.guidance.some((g) => /DisallowUnknownFields/.test(g)));
   const javaRes = analyzeSource({ relPath: 'routes/Orders.java', source: '@GetMapping("/orders")\n@PostMapping("/orders")' });
   assert.deepStrictEqual(javaRes.methods, ['GET', 'POST']);
-  assert.ok(javaRes.guidance.some((g) => /FAIL_ON_UNKNOWN_PROPERTIES/.test(g)));
+});
+
+test('auth drift: flags a protected route with no auth check, and one removed since the base ref', () => {
+  const { formatGithub } = require('../src/check');
+  const root = tmp();
+  const doc = { version: 1, route: '/api/orders', methods: { GET: { exposure: 'authenticated' } } };
+  const guarded = "export async function GET(){ const s = await getServerSession(); if(!s) return new Response('no',{status:401}); }";
+  spawnSync('git', ['init'], { cwd: root });
+  spawnSync('git', ['config', 'user.email', 't@example.com'], { cwd: root });
+  spawnSync('git', ['config', 'user.name', 'T'], { cwd: root });
+  put(root, 'app/api/orders/route.ts', guarded);
+  put(root, 'app/api/orders/.route.json', JSON.stringify(doc));
+  spawnSync('git', ['add', '.'], { cwd: root });
+  spawnSync('git', ['commit', '-m', 'init'], { cwd: root });
+  assert.ok(!check(root, { base: 'HEAD' }).findings.some((f) => /^auth-/.test(f.type)), 'guarded route is clean');
+  put(root, 'app/api/orders/route.ts', 'export async function GET(){ return Response.json([]); }');
+  const r = check(root, { base: 'HEAD' });
+  assert.ok(r.findings.some((f) => f.type === 'auth-removed' && f.file === 'app/api/orders/route.ts'));
+  assert.ok(!r.findings.some((f) => f.type === 'auth-not-found'), 'removal is reported once');
+  assert.ok(/^::error file=app\/api\/orders\/route\.ts,title=auth-removed::/.test(formatGithub(r)));
+  const noBase = check(root);
+  assert.ok(noBase.findings.some((f) => f.type === 'auth-not-found'), 'without a base it still warns');
+  put(root, 'app/api/orders/.route.json', JSON.stringify({ ...doc, enforcement: { via: ['api-gateway'] } }));
+  assert.ok(!check(root).findings.some((f) => f.type === 'auth-not-found'), 'declared external enforcement is not flagged');
+  put(root, 'app/api/login/route.ts', 'export async function POST(){ return Response.json({}); }');
+  put(root, 'app/api/login/.route.json', JSON.stringify({ version: 1, route: '/api/login', methods: { POST: { exposure: 'authenticated' } } }));
+  assert.ok(!check(root).findings.some((f) => f.type === 'auth-not-found' && f.file.includes('login')), 'sign-in endpoints are exempt');
+  put(root, 'app/api/orders/.route.json', JSON.stringify({ ...doc, methods: { GET: { exposure: 'public' } } }));
+  assert.ok(!check(root, { base: 'HEAD' }).findings.some((f) => /^auth-/.test(f.type)), 'public routes need no auth check');
 });

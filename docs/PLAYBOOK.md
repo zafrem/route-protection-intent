@@ -17,14 +17,12 @@ Practical steps for using security-sidecar. For how it works inside see [ARCHITE
      "adminPaths": ["/ops-k7Qx92mVbT4nLw", "/backoffice-*"],
      "include": ["**/handlers/**"],
      "exclude": ["**/legacy/**"],
-     "quiet": false,
-     "guidelines": true
+     "quiet": false
    }
    ```
    - `adminPaths`: route prefixes treated like `/admin` (`*` matches within one segment).
    - `include` / `exclude`: extra or removed route-file globs.
    - `quiet`: `true` stops Claude mentioning successful sidecar saves. Questions, refusals, findings and security warnings still appear.
-   - `guidelines`: `false` turns off the session-start security reminder (see "Security reminder in every session" below). Default `true`.
 3. Commit the `.route.json` files with the code. Never put them in `public/` or `static/`.
 
 ## 2. Everyday flow
@@ -44,22 +42,8 @@ Practical steps for using security-sidecar. For how it works inside see [ARCHITE
 ### B. New API or account route
 1. Add it, for example `app/api/orders/route.ts`.
 2. Expect `authenticated`, `no-store`.
-3. Follow the guidance: check the session inside the handler (not only middleware), check role or ownership, rate limit, CSRF for cookie sessions.
-
-### Writing handlers and other functions
-1. The `secure-functions` skill applies to any function that receives external input, in any of the supported languages. The route guidance also lists the key rules as `Input:` lines.
-2. The rules (SG-1 to SG-14) are in `guidelines/core.md`: validate with a strict schema at the edge, no free types, constrain values and sizes, check ownership, never build queries, commands or paths from input, keep secrets out of code and logs, fail closed. Language notes sit in `guidelines/languages/`.
-3. Using another assistant? Copy the generated file from `adapters/` (see `adapters/README.md`).
-4. To change or add a rule or language, edit `guidelines/` and run `npm run guidelines`.
-5. These are guidance. Nothing blocks code that breaks them, so use code review and your type checker (`strict` mode, `mypy --strict`) as the enforcement.
-
-### Security reminder in every session
-1. A `SessionStart` hook (on startup, resume, clear and compact) gives the agent a compact list of the SG rules, so they apply to **all** code it writes, not only routes and handlers.
-2. The list is generated from `guidelines/core.md` into `plugins/security-sidecar/hooks/security-reminder.txt`. After editing a rule run `npm run guidelines`; `npm test` fails if the file is stale.
-3. It costs a small amount of context per session. To turn it off, set `"guidelines": false` in `.security-sidecar.config.json`. The route hooks and skills keep working.
-4. It is advice for the agent, not a control. It never says code is secure, and it does not stop code that ignores the rules. Keep code review and the `check` lint in place.
-5. Informal test (2026-11-08, headless Claude Code, one prompt: an Express `DELETE /files/:name` handler, five runs each way): with the plugin all five runs flagged missing authentication, limited the file-name format and deleted regular files only; without it none did. Path traversal was handled in both. None of the plugin runs added a real authentication check, only a TODO. One task and ten runs, so it shows the reminder has an effect, not how large it is.
-6. If the agent seems to ignore it, ask it to apply the `secure-functions` skill explicitly for that change.
+3. Follow the guidance: check the session inside the handler (not only middleware), check role or ownership, rate limit, CSRF for cookie sessions. Keep that check: `check --base` flags a pull request that removes it.
+4. For input validation and other secure-coding rules, use Claude Code's `/security-review` and your own linters; this tool does not cover them.
 
 ### C. A route the tool is unsure about
 1. You are asked. Pick **Secured** unless the page is meant for search engines.
@@ -112,11 +96,13 @@ Git pre-commit hook (`.git/hooks/pre-commit`, make it executable):
 node plugins/security-sidecar/cli/bin/security-sidecar.js check . --strict || exit 1
 ```
 
-GitHub Actions step:
-```yaml
-- run: node plugins/security-sidecar/cli/bin/security-sidecar.js check . --strict
+GitHub Actions on pull requests: copy `examples/github-action/security-sidecar.yml`. It checks out full history and runs
+```bash
+node plugins/security-sidecar/cli/bin/security-sidecar.js check . --base "origin/$BASE_BRANCH" --format github --strict
 ```
-Adjust the path to where the CLI lives in your project.
+so each finding shows as an annotation on the changed file (`auth-removed` and `policy-downgrade` as errors, the rest as warnings). Adjust the path to where the CLI lives in your project.
+
+`--base` needs the base commit available locally. A shallow clone (`fetch-depth: 1`) cannot compare, and then the removed-check and downgrade findings are silently skipped, so keep `fetch-depth: 0`.
 
 ## 5. Finding reference
 
@@ -130,15 +116,15 @@ Adjust the path to where the CLI lives in your project.
 | `admin-no-network-restriction` | Add an IP allowlist, VPN or mTLS, then record it in `enforcement.via` |
 | `admin-no-gate` | Add SSO/MFA or a passphrase gate and record it in `gate` |
 | `admin-path-exposed` | Remove the link, sitemap or `robots.txt` entry, or approve it as in scenario E |
-| `risky-code` | Replace `eval` with a parser or lookup table, shell calls with an argument-list API, and string-built SQL with parameterized queries. If reviewed and safe, add a `security-sidecar-ignore` comment with the reason |
+| `auth-removed` | Restore the authentication check, or change the sidecar on purpose (and review that change) |
+| `auth-not-found` | Add the check in the route, or, if middleware or a gateway does it, record that in `enforcement.via` |
+| `policy-downgrade` | Confirm the weaker policy is intended; otherwise restore the previous sidecar value |
+| `intent-code-mismatch` | Align the route's caching or `robots` metadata with the sidecar, or update the sidecar |
 | `linkable-not-approved` | Confirm with the owner, then re-save with `reason.source: user`, or remove `linkable` |
 | `intent-code-mismatch` | Remove `force-static` / `revalidate` on `no-store` routes, or align `robots` metadata with the sidecar's `indexing` |
 | `policy-downgrade` | Restore the previous exposure, `gate`, `rateLimit`, `mode` or network restriction, or get explicit review approval |
 
 `save` exits 2 on a schema error, a secret-like value, a sidecar name that is not allowed, or an unapproved `linkable`. Nothing is written in that case.
-
-### Reviewing suppressions
-`check` lists every line suppressed with `security-sidecar-ignore` under `suppressed`. An agent can add that comment, so treat each one as a review item in pull requests and check the stated reason.
 
 ## 6. Rules of thumb
 

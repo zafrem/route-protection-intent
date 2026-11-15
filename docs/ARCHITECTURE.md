@@ -36,9 +36,7 @@ All logic lives in one dependency-free Node CLI plus one JSON schema. The Claude
 | `plugins/security-sidecar/cli/` | **Generated copy** of `bin/`, `src/`, `schema/` (see 7) |
 | `.claude-plugin/marketplace.json` | Lets users run `/plugin marketplace add` |
 | `scripts/bundle.js` | Copies the core into the plugin |
-| `guidelines/` | Single source of the secure-coding guidelines (language-neutral core and per-language notes) |
-| `scripts/guidelines.js` | Generates the skill and the assistant adapters from `guidelines/` |
-| `adapters/` | Generated guideline files for other assistants (`AGENTS.md`, Cursor, Gemini) and how to install them |
+| `examples/github-action/` | Ready-to-copy pull-request workflow that runs `check --base` |
 | `test/core.test.js` | Unit tests, plus hook and bundle-freshness tests |
 | `examples/nextjs/` | Sample app with generated sidecars |
 
@@ -48,13 +46,12 @@ All logic lives in one dependency-free Node CLI plus one JSON schema. The Claude
 | --- | --- |
 | `routes.js` | Which files are routes (globs), the URL a file serves, HTTP methods in source, sidecar file naming, directory walk, `adminPaths` matching, config loading |
 | `analyze.js` | Classification: exposure, cache, indexing, confidence, options, `needsGate`, `existing` sidecar info |
-| `guidance.js` | Framework-specific implementation text for each exposure, plus the input-handling checklist (text only) |
+| `guidance.js` | Framework-specific implementation text for each exposure, (text only) |
 | `validate.js` | Minimal JSON Schema validator for the subset the schema uses |
 | `secrets.js` | Secret-pattern detection for every string value and key |
 | `save.js` | Merge with existing sidecar, validate, secret scan, canonical key order, write |
 | `check.js` | Repo-wide findings and exit code |
 | `links.js` | Finds references to protected routes in other files |
-| `lint.js` | Line-based lint for `eval`, exec / shell, string-built SQL, and raw HTML sinks across JS/TS/Py/Go/Java, with a `security-sidecar-ignore` suppression |
 | `compile.js` | Collects `mode: enforce` sidecars into the manifest and calls a target |
 | `targets/nginx.js` | Renders the Nginx config |
 | `targets/nextjs.js` | Renders Next.js `headers()` and `routePolicies` module |
@@ -104,9 +101,14 @@ Walk the repo once, then compare the set of *expected* sidecars (from route file
 | `admin-no-gate` | Admin route without a `gate` |
 | `admin-path-exposed` | Another file references an admin, gated or internal route |
 | `linkable-not-approved` | `linkable: true` without `reason.source: user` |
-| `risky-code` | `eval`, exec / shell, or string-built SQL on a line (suppressed lines are listed separately and do not fail `--strict`) |
+| `intent-code-mismatch` | Route caching or `robots` metadata contradicts the sidecar |
+| `auth-not-found` | Sidecar says protected but no auth signal is in the route code, and `enforcement.via` names no external control |
+| `auth-removed` | With `--base`: an auth signal present at the base ref is gone from the route code (reported instead of `auth-not-found`) |
+| `policy-downgrade` | With `--base`: the sidecar's exposure, gate, rate limit, mode or network restriction was weakened since the base ref |
 
-Exit code: 0 in annotate mode; 1 if `--strict` is given or the finding belongs to an `enforce` sidecar.
+Exit code: 0 in annotate mode; 1 if `--strict` is given or the finding belongs to an `enforce` sidecar. `--format github` prints one `::error` (`auth-removed`, `policy-downgrade`) or `::warning` line per finding, which GitHub shows as annotations on the pull request.
+
+Auth detection reuses `hasAuthSignal` from `analyze.js`: one regular expression over the route source. That is deliberately small. It misses auth done in middleware or helper modules, which is why `enforcement.via` can declare an external control, and it cannot tell a check that is correct from one that is merely present.
 
 ### 5.4 compile (opt-in)
 
@@ -116,9 +118,9 @@ Only `mode: enforce` sidecars are used. Compile stops (exit 1) if any still has 
 
 `links.js` builds the protected set (admin, gated, or internal, and not `linkable`). A file is excluded if it belongs to that route itself, is a config file (`*.config.*`, `middleware.*`) or a test. Matching is textual: the route's static prefix as a whole path token, or a full URL ending in it. The hook runs it on any non-route file the agent writes; `check` runs it on the whole repo.
 
-### 5.6 Secure-coding rules
+### 5.6 What this tool does not do
 
-Two parts, both advisory. `guidance.js` appends `Input:` lines to the `analyze` result for handlers and dynamic pages, in TypeScript or Python terms. The full rule set lives in one place, `guidelines/` (`core.md` plus `languages/*.md`), and `scripts/guidelines.js` generates from it the `secure-functions` skill (triggers on any function that takes external input), an `AGENTS.md` block, a Cursor rule and a `GEMINI.md` block under `adapters/`. A test fails if a generated file differs from the source. A `SessionStart` hook (`hooks/session-start.js`) prints the generated `hooks/security-reminder.txt` (a compact rule list) as `additionalContext`, unless `guidelines` is `false` in the config; errors are swallowed so a session never fails to start. The only code lint is `lint.js` (`eval`, exec, string-built SQL). It does not check types such as `any`: the tool has no parser, and that would be mostly false positives.
+Secure-coding rules, input validation checks and code linting are left to Claude Code's built-in `/security-review` and your own scanners (Semgrep, ESLint security rules, Bandit). They were removed from this project to keep the code small and to avoid duplicating tools that do it better. `guidance.js` keeps only the route-level protection steps.
 
 ## 6. Security design
 
@@ -143,11 +145,12 @@ Plugin installs copy only `plugins/security-sidecar/`, so the CLI is bundled ins
 | A schema field | `schema/route.schema.json`, `save.js` (`KEY_ORDER`, merge), docs |
 | A compile target | New file in `src/targets/` exporting `accepts`, `outFile`, `render`; register in `compile.js` |
 | Another agent (Codex, agy) | A new adapter that calls the same CLI; no core change (SRS 6.3) |
+| More auth patterns | `AUTH_SIGNAL_RE` in `analyze.js` |
 
 ## 9. Known limitations
 
 - Only file-based routes are detected. Routes registered in code (Express `app.use`, Flask, Django) are not.
-- One target (Nginx). Next.js middleware is planned.
+- Compile targets (Nginx, Next.js, Cloudflare) are optional output only; none verifies that the config is deployed.
 - No verification that the recorded enforcement exists.
 - Link detection is text matching; paths built at runtime are missed.
-- The lint is single-line text matching: it misses SQL split across lines or built in a variable first, and cannot tell a constant from user input.
+- Auth detection is a single regular expression: a handler that checks auth through an unlisted helper reads as unprotected (`auth-not-found`), and a present-but-wrong check reads as fine.

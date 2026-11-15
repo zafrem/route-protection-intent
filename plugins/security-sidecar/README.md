@@ -1,6 +1,6 @@
 # security-sidecar (Claude Code plugin)
 
-Records the protection intent of each web route in a `.route.json` sidecar file next to the code, whenever the agent creates or changes a route.
+**Documents the protection intent of each web route, so that even if the AI misses something, it can still be caught.** Each route gets a `.route.json` sidecar; `check` flags code that drifts from it, such as an authentication check removed from a route that is meant to be protected. It is not a secure-coding rule set or a linter: use `/security-review` and your own scanners for that.
 
 > **Annotation is not protection.** By default the plugin only records intent. It blocks nothing, and `check` only warns.
 
@@ -17,11 +17,9 @@ Requires Node 18 or newer. The CLI is bundled in this plugin; nothing else is in
 
 | Part | What it does |
 | --- | --- |
-| Hook (`PostToolUse` on `Write` and `Edit`) | Runs route analysis on route files, and warns about links to admin routes and risky code (`eval`, exec, string-built SQL) in any edited file |
-| Hook (`SessionStart`) | Reminds the agent of the secure-coding rules for all code it writes; disable with `"guidelines": false` in `.security-sidecar.config.json` |
+| Hook (`PostToolUse` on `Write` and `Edit`) | Runs route analysis on route files, and warns about links to admin routes in any edited file |
 | Skill `route-policy` | Saves clear classifications silently; asks you when unsure, for an admin gate, and before any link to a protected route is kept |
-| Skill `secure-functions` | Secure-coding rules for functions that take external input |
-| `/security-sidecar:check` | Finds missing, orphan, invalid and unclassified sidecars, exposed admin paths and risky code |
+| `/security-sidecar:check` | Finds missing, orphan, invalid and unclassified sidecars, exposed admin paths, and code that drifted from the recorded intent (`--base <git-ref>` also catches removed auth checks and downgrades) |
 | `/security-sidecar:compile` | Opt-in: builds `routes-manifest.json` and an Nginx config from `mode: enforce` sidecars |
 
 ## What it does not do

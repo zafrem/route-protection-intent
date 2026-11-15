@@ -1,13 +1,13 @@
 {
   "name": "security-sidecar",
-  "description": "Claude Code plugins that record and check the protection intent of web routes.",
+  "description": "Claude Code plugins that document and check the protection intent of web routes.",
   "owner": {
     "name": "zafrem"
   },
   "plugins": [
     {
       "name": "security-sidecar",
-      "description": "Records each web route's protection intent in a .route.json sidecar whenever an AI agent creates or changes a route. Annotate-only by default; it enforces nothing.",
+      "description": "Documents each web route's protection intent in a .route.json sidecar, so that even if the AI misses something, it can still be caught. Flags code that drifts from that intent, such as a removed authentication check. Annotate-only by default.",
       "category": "security",
       "source": "./plugins/security-sidecar"
     }
