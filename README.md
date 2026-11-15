@@ -83,6 +83,8 @@ Optional: `/security-sidecar:compile nginx|nextjs|cloudflare` turns `mode: enfor
 
 Local testing: `/plugin marketplace add ./security-sidecar`.
 
+This plugin is installed straight from this GitHub repository (it is its own marketplace). It is not listed in Anthropic's official plugin directory, so Claude Code treats it like any third-party plugin: read the code before you install it. Current release: `v0.1.0`.
+
 Sidecar naming: `.route.json` where the directory is the route (Next.js app router); `<name>.route.json` where one directory holds many route files.
 
 ## Quiet mode
